@@ -1,4 +1,4 @@
-# Spring Boot JWT Authentication example with Spring Security & Spring Data JPA
+# Spring Boot JWT Authentication with Spring Security & Spring Data JPA
 
 ## User Registration, User Login and Authorization process.
 The diagram shows flow of how we implement User Registration, User Login and Authorization process.
@@ -10,6 +10,7 @@ You can have an overview of our Spring Boot Server with the diagram below:
 
 ![spring-boot-jwt-authentication-spring-security-architecture](spring-boot-jwt-authentication-spring-security-architecture.png)
 
+## Dependency
 MySQL:
 ```xml
 <dependency>
@@ -20,9 +21,7 @@ MySQL:
 ```
 ## Configure Spring Datasource, JPA, App properties
 Open `src/main/resources/application.properties`
-
-```
-- For MySQL
+MySQL
 ```
 spring.datasource.url=jdbc:mysql://localhost:3306/testdb_spring?useSSL=false
 spring.datasource.username=root
