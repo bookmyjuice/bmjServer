@@ -19,7 +19,11 @@ public class SubscriptionService {
             return false;
         }
         else{
-       
+        // @SuppressWarnings("unchecked")
+        // Map<String, Object> content = (Map<String, Object>) e.get("content");
+        // @SuppressWarnings("unchecked")
+        // Map<String, Object> subscriptionObject = (Map<String, Object>) content.get("subscription");
+        
         SubscriptionEntity subscription = SubscriptionMapper.toEntity(e.content().subscription());
        
         if (subscriptionRepository.existsById(subscription.getId())) {
@@ -44,18 +48,9 @@ public class SubscriptionService {
         return subscriptionRepository.findByCustomerId(id).getId();
     }
 
-    public boolean updateSubscription(Event e) {
+    public String updateSubscription(String subscriptionId, String newDetails) {
         // Logic to update subscription
-        if (e == null) {
-            return false;
-        }
-        else{
-        SubscriptionEntity subscription = SubscriptionMapper.toEntity(e.content().subscription());
-        if (subscriptionRepository.existsById(subscription.getId())) {
-            return false;
-        } else {
-            subscriptionRepository.save(subscription);
-            return true;
-        }}
+        return "Updated subscription with ID: " + subscriptionId + " to new details: " + newDetails;
+
     }
 }

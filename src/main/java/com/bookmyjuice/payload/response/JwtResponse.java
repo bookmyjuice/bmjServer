@@ -1,8 +1,5 @@
-<<<<<<<< HEAD:src/main/java/com/bookmyjuice/payload/response/JwtResponse.java
+// <<<<<<<< HEAD:src/main/java/com/bookmyjuice/payload/response/JwtResponse.java
 package com.bookmyjuice.payload.response;
-========
-package online.bmj.www.DTOs;
->>>>>>>> d97884e9565256ce746f426f71499cf53ac87269:src/main/java/online/bmj/www/DTOs/JwtResponse.java
 
 import java.util.List;
 

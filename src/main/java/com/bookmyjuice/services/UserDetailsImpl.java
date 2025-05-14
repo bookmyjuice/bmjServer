@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:src/main/java/com/bookmyjuice/services/UserDetailsImpl.java
 package com.bookmyjuice.services;
-========
-package online.bmj.www.services;
->>>>>>>> d97884e9565256ce746f426f71499cf53ac87269:src/main/java/online/bmj/www/services/UserDetailsImpl.java
 
 import java.util.Collection;
 import java.util.List;
@@ -13,13 +9,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-<<<<<<<< HEAD:src/main/java/com/bookmyjuice/services/UserDetailsImpl.java
 import com.bookmyjuice.models.User;
-========
->>>>>>>> d97884e9565256ce746f426f71499cf53ac87269:src/main/java/online/bmj/www/services/UserDetailsImpl.java
 import com.fasterxml.jackson.annotation.JsonIgnore;
-
-import online.bmj.www.models.User;
 
 
 public class UserDetailsImpl implements UserDetails {
@@ -48,7 +39,7 @@ public class UserDetailsImpl implements UserDetails {
         .collect(Collectors.toList());
     return new UserDetailsImpl(
         user.getId(), 
-        user.getPhone(), 
+        user.getUsername(), 
         user.getEmail(),
         user.getPassword(), 
         authorities);

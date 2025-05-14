@@ -1,8 +1,8 @@
-<<<<<<<< HEAD:src/main/java/com/bookmyjuice/security/jwt/JwtUtils.java
+// <<<<<<<< HEAD:src/main/java/com/bookmyjuice/security/jwt/JwtUtils.java
 package com.bookmyjuice.security.jwt;
-========
-package online.bmj.www.security.jwt;
->>>>>>>> d97884e9565256ce746f426f71499cf53ac87269:src/main/java/online/bmj/www/security/jwt/JwtUtils.java
+// ========
+// package online.bmj.www.security.jwt;
+// >>>>>>>> d97884e9565256ce746f426f71499cf53ac87269:src/main/java/online/bmj/www/security/jwt/JwtUtils.java
 
 import java.security.Key;
 import java.util.Date;
@@ -13,11 +13,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
-<<<<<<<< HEAD:src/main/java/com/bookmyjuice/security/jwt/JwtUtils.java
 import com.bookmyjuice.services.UserDetailsImpl;
 
-========
->>>>>>>> d97884e9565256ce746f426f71499cf53ac87269:src/main/java/online/bmj/www/security/jwt/JwtUtils.java
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
@@ -25,7 +22,6 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-import online.bmj.www.services.UserDetailsImpl;
 
 @Component
 public class JwtUtils {
