@@ -1,4 +1,5 @@
 package com.bookmyjuice.controllers;
+
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,9 +11,9 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bookmyjuice.services.CustomerService;
+import com.bookmyjuice.services.ItemService;
 import com.bookmyjuice.services.SubscriptionService;
 import com.chargebee.models.Event;
-
 
 @RestController
 @RequestMapping("/api/webhooks")
@@ -24,10 +25,9 @@ public class WebhookController {
     @Autowired
     private CustomerService customerService; // Assuming you have a CustomerService to handle business logic
 
-    // @PostMapping("/subscriptions")
-    // public boolean postMethodName(@RequestBody Map<String,Object> entity) {
-    //     return subscriptionService.saveSubscriptions(entity);
-    // }
+    @Autowired
+    private ItemService itemService; // Assuming you have an ItemService to handle business logic
+
     @PostMapping("/subscriptions")
     @ResponseBody
     public ResponseEntity<String> handleWebhook(@RequestBody Map<String, Object> e) throws Exception {
@@ -73,6 +73,63 @@ public class WebhookController {
         }
     }
 
+    @PostMapping("/items")
+    @ResponseBody
+    public ResponseEntity<?> handleItemsWebhook(@RequestBody Map<String, Object> e) throws Exception {
+        Event event = Event.retrieve(e.get("id").toString()).request().event();
+        switch (event.eventType()) {
+            case ITEM_CREATED -> {
+                return handleItemCreated(event);
+            }
+            case ITEM_UPDATED -> {
+                return handleItemUpdated(event);
+            }
+            case ITEM_DELETED -> {
+                return handleItemDeleted(event);
+            }
+
+            default -> {
+                return ResponseEntity.status(400).body("Unhandled item event type: " + event.eventType());
+            }
+        }
+    }
+// Item webhook handlers --------------------------------------------
+
+    /**
+     * Handles the ITEM_CREATED event.
+     *
+     * @param event The Chargebee event containing item creation details.
+     * @return A ResponseEntity indicating the result of the operation.
+     */
+    private ResponseEntity<?> handleItemCreated(Event event) {
+        try {
+            return itemService.saveItem(event);
+        } catch (Exception err) {
+            // Handle the exception (e.g., log it, return an error response, etc.)
+            return ResponseEntity.status(500).body("Error processing webhook: " + err.getMessage());
+        }
+    }
+
+    private ResponseEntity<?> handleItemUpdated(Event event) {
+        try {
+            return itemService.updateItem(event);
+
+        } catch (Exception err) {
+            // Handle the exception (e.g., log it, return an error response, etc.)
+            return ResponseEntity.status(500).body("Error processing webhook: " + err.getMessage());
+        }
+    }
+
+    private ResponseEntity<?> handleItemDeleted(Event event) {
+        try {
+            return itemService.deleteItem(event);
+        } catch (Exception err) {
+            // Handle the exception (e.g., log it, return an error response, etc.)
+            return ResponseEntity.status(500).body("Error processing webhook: " + err.getMessage());
+        }
+    }
+// Subscription webhook handlers --------------------------------------------
+
     private ResponseEntity<String> handleSubscriptionCreated(Event event) {
         try {
             if (subscriptionService.saveSubscriptions(event)) {
@@ -88,7 +145,7 @@ public class WebhookController {
 
     private ResponseEntity<String> handleSubscriptionCancelled(Event event) {
         try {
-            if(subscriptionService.updateSubscription(event)) {
+            if (subscriptionService.updateSubscription(event)) {
                 return ResponseEntity.status(200).body("Webhook received and processed successfully");
             } else {
                 return ResponseEntity.status(400).body("Subscription not updated!");
@@ -114,6 +171,7 @@ public class WebhookController {
         }
     }
 
+// Customer Webhhok Handlers --------------------------------------------
     private ResponseEntity<String> handleCustomerCreated(Event event) {
         try {
             if (customerService.saveCustomer(event)) {

@@ -24,6 +24,7 @@ import com.bookmyjuice.models.ERole;
 import com.bookmyjuice.models.Role;
 import com.bookmyjuice.models.User;
 import com.bookmyjuice.payload.request.LoginRequest;
+import com.bookmyjuice.payload.request.PasswordResetRequest;
 import com.bookmyjuice.payload.request.SignupRequest;
 import com.bookmyjuice.payload.response.JwtResponse;
 import com.bookmyjuice.payload.response.MessageResponse;
@@ -185,4 +186,45 @@ public class AuthController {
         }
         return ResponseEntity.ok(new MessageResponse(user.getId().toString()));
     }
+
+    @PostMapping("/resetpassword")
+    public ResponseEntity<?> resetPassword(@RequestBody PasswordResetRequest passwordResetRequest) {
+        if (passwordResetRequest.getPassword() == null || passwordResetRequest.getPassword().isEmpty()) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: password is empty!"));
+        } else if (passwordResetRequest.getPassword().length() < 8) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: password is too short!"));
+        } else if (passwordResetRequest.getPassword().length() > 20) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: password is too long!"));
+        } else if (!passwordResetRequest.getPassword().matches(".*[a-z].*")) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: password must contain at least one lowercase letter!"));
+        } else if (!passwordResetRequest.getPassword().matches(".*[A-Z].*")) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: password must contain at least one uppercase letter!"));
+        } else if (!passwordResetRequest.getPassword().matches(".*[0-9].*")) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: password must contain at least one number!"));
+        } else if (!passwordResetRequest.getPassword().matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?].*")) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: password must contain at least one special character!"));
+        } else if (passwordResetRequest.getPassword().matches(".*\\s.*")) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: password must not contain spaces!"));
+        } else if (passwordResetRequest.getPassword().matches(".*[\\u0000-\\u001F\\u007F].*")) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error: password must not contain control characters!"));
+        } else {
+            User user = userRepository.findByUsername(passwordResetRequest.getUsername())
+                    .orElse(null);
+            if (user == null) {
+                return ResponseEntity.badRequest().body(new MessageResponse("Error: User is not found."));
+            }
+            user.setPassword(encoder.encode(passwordResetRequest.getPassword()));
+            userRepository.save(user);
+            return ResponseEntity.ok(new MessageResponse("ok"));
+        }
+    }
+
+    // private Long getUserIdFromSecurityContext() {
+    //     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    //     if (authentication != null && authentication.getPrincipal() instanceof UserDetailsImpl) {
+    //         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+    //         return userDetails.getId();
+    //     }
+    //     return null; // Or throw an exception
+    // }
 }

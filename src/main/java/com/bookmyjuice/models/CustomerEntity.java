@@ -1,14 +1,20 @@
 package com.bookmyjuice.models;
 
+import java.util.List;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "CustomerEntity")
 public class CustomerEntity {
     @Id 
-    private String customerId;
+    @Column(name = "customer_id") // Map the id field to the customer_id column in subscription_entity table
+    private String Id;
     private String firstName;
     private String lastName;
     private String email;
@@ -37,14 +43,14 @@ public class CustomerEntity {
     // @JoinColumn(name = "payment_method_id", referencedColumnName = "id")
     // private PaymentMethod paymentMethod;
 
-    // @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL)
-    // private List<SubscriptionEntity> subscriptions;
+    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL)
+    private List<SubscriptionEntity> subscriptions;
 
 
 
 
-    public String getCustomerId() {
-        return customerId;
+    public String getId() {
+        return Id;
       
     }
 
@@ -78,8 +84,8 @@ public class CustomerEntity {
 
 
 
-    public void setCustomerId(String customerId) {
-        this.customerId = customerId;
+    public void setId(String customerId) {
+        this.Id = customerId;
     }
 
     public String getFirstName() {
@@ -281,4 +287,12 @@ public class CustomerEntity {
     // public void setSubscriptions(List<SubscriptionEntity> subscriptions) {
     //     this.subscriptions = subscriptions;
     // }
+
+    public List<SubscriptionEntity> getSubscriptions() {
+        return subscriptions;
+    }
+
+    public void setSubscriptions(List<SubscriptionEntity> subscriptions) {
+        this.subscriptions = subscriptions;
+    }
 }

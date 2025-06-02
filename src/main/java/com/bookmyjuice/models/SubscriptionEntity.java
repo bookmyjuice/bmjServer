@@ -1,7 +1,14 @@
 package com.bookmyjuice.models;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
 
@@ -10,7 +17,7 @@ import jakarta.persistence.Table;
 public class SubscriptionEntity {
     @Id
     private String id;
-    private int billingPeriod;
+    private int billingPeriod; 
     private String billingPeriodUnit;
     private String autoCollection;
     private String status;
@@ -26,8 +33,14 @@ public class SubscriptionEntity {
     private int dueInvoicesCount;
     private Long mrr;
     private boolean hasScheduledAdvanceInvoices;
-    private String customerId;
+    // private String customerId;
 
+    @ManyToOne
+    @JoinColumn(name = "customer_id")
+    private CustomerEntity customer;
+
+    @OneToMany(mappedBy = "subscription", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ItemEntity> items = new ArrayList<>();
 
     public String getId() {
         return id;
@@ -182,11 +195,30 @@ public class SubscriptionEntity {
     //     this.subscriptionItems = subscriptionItems;
     // }
 
-    public String getCustomerId() {
-        return customerId;
+    // public String getCustomerId() {
+    //     return customerId;
+    // }
+
+    // public void setCustomerId(String customerId) {
+    //     this.customerId = customerId;
+    // }
+
+    public CustomerEntity getCustomer() {
+        return customer;
     }
 
-    public void setCustomerId(String customerId) {
-        this.customerId = customerId;
+    public void setCustomer(CustomerEntity customer) {
+        this.customer = customer;
+    }
+
+    public List<ItemEntity> getItems() {
+        return items;
+    }
+
+    public void setItems(List<ItemEntity> items) {
+        this.items.clear(); // Clear the existing collection
+        if (items != null) {
+            this.items.addAll(items); // Add the new items to the existing collection
+        }
     }
 }

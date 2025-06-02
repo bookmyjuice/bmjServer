@@ -4,9 +4,12 @@ import com.chargebee.models.Customer;
 
 public class CustomerMapper {
     public static CustomerEntity toEntity(Customer chargebeeCustomer) {
+         if (chargebeeCustomer.id() == null || chargebeeCustomer.id().isEmpty()) {
+            throw new IllegalArgumentException("Customer ID is missing");
+        }
         CustomerEntity entity = new CustomerEntity();
 
-        entity.setCustomerId(chargebeeCustomer.id());
+        entity.setId(chargebeeCustomer.id());
         entity.setFirstName(chargebeeCustomer.firstName());
         entity.setLastName(chargebeeCustomer.lastName());
         entity.setEmail(chargebeeCustomer.email());

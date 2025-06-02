@@ -22,7 +22,7 @@ public class SubscriptionMapper {
         entity.setDueInvoicesCount((int) chargebeeSubscription.dueInvoicesCount());
         entity.setMrr(chargebeeSubscription.mrr() != null ? (long) chargebeeSubscription.mrr() : 0L);
         entity.setHasScheduledAdvanceInvoices((boolean) chargebeeSubscription.hasScheduledAdvanceInvoices());
-        entity.setCustomerId(chargebeeSubscription.customerId());
+        // entity.setCustomerId(chargebeeSubscription.customerId());
         return entity;
     }
 }
