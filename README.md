@@ -170,6 +170,32 @@ mvn spring-boot:run
 
 ---
 
+## Architecture & Flow Diagrams
+
+### JWT Authentication Flow
+![JWT Authentication Flow](spring-boot-jwt-authentication-spring-security-flow.png)
+
+### Security Architecture
+![Security Architecture](spring-boot-jwt-authentication-spring-security-architecture.png)
+
+### Refresh Token Flow
+![Refresh Token Flow](spring-boot-refresh-token-jwt-example-flow.png)
+
+### Integration Architecture
+
+```mermaid
+graph TD
+    Client[Client Application] --> |HTTP Requests| API[BookMyJuice API]
+    API --> |Authentication| JWT[JWT Security]
+    API --> |Subscription Management| CB[Chargebee Integration]
+    API --> |Data Storage| DB[(MySQL Database)]
+    CB --> |Webhooks| WH[Webhook Controllers]
+    WH --> |Event Processing| SRV[Services]
+    SRV --> |Data Persistence| DB
+    CB --> |Hosted Pages| PP[Pricing Pages]
+    PP --> |Customer Portal| Client
+```
+
 ## Version
 
 Current Version: 0.0.2-SNAPSHOT
