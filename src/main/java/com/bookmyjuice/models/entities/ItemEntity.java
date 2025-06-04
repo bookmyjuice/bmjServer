@@ -1,4 +1,4 @@
-package com.bookmyjuice.models;
+package com.bookmyjuice.models.entities;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -23,6 +23,7 @@ public class ItemEntity {
     private boolean enabledForCheckout;
     private String itemFamilyId;
     private String unit;
+    private boolean archived;
 
     @ManyToOne
     @JoinColumn(name = "subscription_id")
@@ -116,10 +117,20 @@ public class ItemEntity {
     public void setUnit(String unit) {
         this.unit = unit;
     }
+
     public SubscriptionEntity getSubscription() {
         return subscription;
     }
+
     public void setSubscription(SubscriptionEntity subscription) {
         this.subscription = subscription;
+    }
+
+    public boolean isArchived() {
+        return archived;
+    }
+
+    public void setArchived(boolean archived) {
+        this.archived = archived;
     }
 }

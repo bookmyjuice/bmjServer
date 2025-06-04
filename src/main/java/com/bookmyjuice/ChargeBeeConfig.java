@@ -2,6 +2,7 @@ package com.bookmyjuice;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
 import com.chargebee.Environment;
@@ -15,18 +16,18 @@ public class ChargeBeeConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(ChargeBeeConfig.class);
 
-    // @Value("${chargebee.site}")
-    private final String chargebeeSite="bookmyjuice-test";
+    @Value("${chargebee.site}")
+    private String chargebeeSite;
 
-    // @Value("${chargebee.api-key}")
-    private final String chargebeeApiKey= "test_fMwLpyDFENxTWox6zsbpaYNAoL3yiY9v";  
+    @Value("${chargebee.apiKey}")
+    private String chargebeeApiKey;
 
 
     @PostConstruct
     public void initChargeBee() {
         try {
             // Configure ChargeBee environment using externalized values
-            Environment.configure(chargebeeSite, chargebeeApiKey /*, apiVersion if needed*/);
+            Environment.configure(chargebeeSite, chargebeeApiKey);
             logger.info("ChargeBee configured successfully for site: {}", chargebeeSite);
 
         } catch (OperationFailedException e) {

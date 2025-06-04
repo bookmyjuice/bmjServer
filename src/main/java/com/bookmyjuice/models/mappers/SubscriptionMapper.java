@@ -1,4 +1,8 @@
-package com.bookmyjuice.models;
+package com.bookmyjuice.models.mappers;
+
+import com.bookmyjuice.models.entities.ShippingAddressEntity;
+import com.bookmyjuice.models.entities.SubscriptionEntity;
+import com.chargebee.models.Subscription;
 
 public class SubscriptionMapper {
     public static SubscriptionEntity toEntity(com.chargebee.models.Subscription chargebeeSubscription) {
@@ -22,7 +26,24 @@ public class SubscriptionMapper {
         entity.setDueInvoicesCount((int) chargebeeSubscription.dueInvoicesCount());
         entity.setMrr(chargebeeSubscription.mrr() != null ? (long) chargebeeSubscription.mrr() : 0L);
         entity.setHasScheduledAdvanceInvoices((boolean) chargebeeSubscription.hasScheduledAdvanceInvoices());
+        // Map Shipping Address if present
+        if (chargebeeSubscription.shippingAddress() != null) {
+            entity.setShippingAddress(mapShippingAddress(chargebeeSubscription.shippingAddress()));
+        }
         // entity.setCustomerId(chargebeeSubscription.customerId());
+        return entity;
+    }
+
+    private static ShippingAddressEntity mapShippingAddress(Subscription.ShippingAddress shippingAddress) {
+        ShippingAddressEntity entity = new ShippingAddressEntity();
+        entity.setLine1(shippingAddress.line1());
+        entity.setLine2(shippingAddress.line2());
+        entity.setCity(shippingAddress.city());
+        entity.setState(shippingAddress.state());
+        entity.setCountry(shippingAddress.country());
+        entity.setZip(shippingAddress.zip());
+        entity.setEmail(shippingAddress.email());
+        entity.setPhone(shippingAddress.phone());
         return entity;
     }
 }

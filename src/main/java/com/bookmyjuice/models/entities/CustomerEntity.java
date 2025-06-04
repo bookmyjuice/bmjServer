@@ -1,4 +1,4 @@
-package com.bookmyjuice.models;
+package com.bookmyjuice.models.entities;
 
 import java.util.List;
 
@@ -7,14 +7,15 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "CustomerEntity")
+@Table(name = "customer_entity")
 public class CustomerEntity {
-    @Id 
+    @Id
     @Column(name = "customer_id") // Map the id field to the customer_id column in subscription_entity table
-    private String Id;
+    private String id;
     private String firstName;
     private String lastName;
     private String email;
@@ -30,62 +31,30 @@ public class CustomerEntity {
     private String channel;
     private long resourceVersion;
     private boolean deleted;
-    // private String cardStatus;
     private Long promotionalCredits;
     private Long refundableCredits;
     private Long excessPayments;
     private Long unbilledCharges;
     private String preferredCurrencyCode;
-    // private int mrr;
     private String primaryPaymentSourceId;
+    private boolean migrated;
 
-    // @OneToOne(cascade = CascadeType.ALL)
-    // @JoinColumn(name = "payment_method_id", referencedColumnName = "id")
-    // private PaymentMethod paymentMethod;
+    @OneToOne(cascade = CascadeType.ALL)
+    private BillingAddressEntity billingAddress;
+
+    @OneToOne(cascade = CascadeType.ALL)
+    private ShippingAddressEntity shippingAddress;
 
     @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL)
     private List<SubscriptionEntity> subscriptions;
 
-
-
-
+    // Getters and Setters
     public String getId() {
-        return Id;
-      
+        return id;
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    public void setId(String customerId) {
-        this.Id = customerId;
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String getFirstName() {
@@ -208,14 +177,6 @@ public class CustomerEntity {
         this.deleted = deleted;
     }
 
-    // public String getCardStatus() {
-    //     return cardStatus;
-    // }
-
-    // public void setCardStatus(String cardStatus) {
-    //     this.cardStatus = cardStatus;
-    // }
-
     public Long getPromotionalCredits() {
         return promotionalCredits;
     }
@@ -256,14 +217,6 @@ public class CustomerEntity {
         this.preferredCurrencyCode = preferredCurrencyCode;
     }
 
-    // public int getMrr() {
-    //     return mrr;
-    // }
-
-    // public void setMrr(int mrr) {
-    //     this.mrr = mrr;
-    // }
-
     public String getPrimaryPaymentSourceId() {
         return primaryPaymentSourceId;
     }
@@ -272,21 +225,29 @@ public class CustomerEntity {
         this.primaryPaymentSourceId = primaryPaymentSourceId;
     }
 
-    // public PaymentMethod getPaymentMethod() {
-    //     return paymentMethod;
-    // }
+    public boolean isMigrated() {
+        return migrated;
+    }
 
-    // public void setPaymentMethod(PaymentMethod paymentMethod) {
-    //     this.paymentMethod = paymentMethod;
-    // }
+    public void setMigrated(boolean migrated) {
+        this.migrated = migrated;
+    }
 
-    // public List<SubscriptionEntity> getSubscriptions() {
-    //     return subscriptions;
-    // }
+    public BillingAddressEntity getBillingAddress() {
+        return billingAddress;
+    }
 
-    // public void setSubscriptions(List<SubscriptionEntity> subscriptions) {
-    //     this.subscriptions = subscriptions;
-    // }
+    public void setBillingAddress(BillingAddressEntity billingAddress) {
+        this.billingAddress = billingAddress;
+    }
+
+    public ShippingAddressEntity getShippingAddress() {
+        return shippingAddress;
+    }
+
+    public void setShippingAddress(ShippingAddressEntity shippingAddress) {
+        this.shippingAddress = shippingAddress;
+    }
 
     public List<SubscriptionEntity> getSubscriptions() {
         return subscriptions;

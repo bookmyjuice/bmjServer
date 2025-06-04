@@ -1,5 +1,6 @@
-package com.bookmyjuice.models;
+package com.bookmyjuice.models.mappers;
 
+import com.bookmyjuice.models.entities.CustomerEntity;
 import com.chargebee.models.Customer;
 
 public class CustomerMapper {
@@ -39,25 +40,11 @@ public class CustomerMapper {
         //     entity.setPaymentMethod(PaymentMethodMapper.toEntity(chargebeeCustomer.getPaymentMethod()));
         // }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        // Map Billing Address
+        if (chargebeeCustomer.billingAddress() != null) {
+            entity.setBillingAddress(mapBillingAddress(chargebeeCustomer.billingAddress()));
+        }
+        // Shipping address is not available on Customer in Chargebee Java SDK
 
         // Convert Subscriptions
         // if (chargebeeCustomer. != null) {
@@ -70,4 +57,24 @@ public class CustomerMapper {
 
         return entity;
     }
+
+    private static com.bookmyjuice.models.entities.BillingAddressEntity mapBillingAddress(Customer.BillingAddress billingAddress) {
+        if (billingAddress == null) return null;
+        com.bookmyjuice.models.entities.BillingAddressEntity entity = new com.bookmyjuice.models.entities.BillingAddressEntity();
+        // entity.setId(billingAddress.id()); // Not available in Chargebee SDK
+        entity.setFirstName(billingAddress.firstName());
+        entity.setLastName(billingAddress.lastName());
+        entity.setEmail(billingAddress.email());
+        entity.setCompany(billingAddress.company());
+        entity.setPhone(billingAddress.phone());
+        entity.setLine1(billingAddress.line1());
+        entity.setLine2(billingAddress.line2());
+        entity.setCity(billingAddress.city());
+        entity.setState(billingAddress.state());
+        entity.setCountry(billingAddress.country());
+        entity.setZip(billingAddress.zip());
+        return entity;
+    }
+
+    // Shipping address mapping removed as it's not supported on Customer
 }

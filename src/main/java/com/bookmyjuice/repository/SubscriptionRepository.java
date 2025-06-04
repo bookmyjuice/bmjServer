@@ -1,11 +1,12 @@
 package com.bookmyjuice.repository;
 
+import java.util.List;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import com.bookmyjuice.models.CustomerEntity;
-import com.bookmyjuice.models.SubscriptionEntity;
-import java.util.List;
+import com.bookmyjuice.models.entities.CustomerEntity;
+import com.bookmyjuice.models.entities.SubscriptionEntity;
 
 
 

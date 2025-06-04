@@ -30,3 +30,6 @@ replay_pid*
 /.idea/
 /.vscode/
 .env
+.env.*
+*.env
+src/main/resources/application-local.properties

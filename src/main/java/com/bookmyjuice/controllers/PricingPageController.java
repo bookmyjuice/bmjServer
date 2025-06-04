@@ -13,8 +13,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import com.bookmyjuice.models.ItemEntity;
-import com.bookmyjuice.models.SubscriptionEntity;
+import com.bookmyjuice.models.entities.ItemEntity;
+import com.bookmyjuice.models.entities.SubscriptionEntity;
 import com.bookmyjuice.services.SubscriptionService;
 import com.bookmyjuice.services.UserDetailsImpl;
 import com.chargebee.Result;
@@ -60,43 +60,6 @@ public class PricingPageController {
         return null; // Or throw an exception
     }
 
-    // private ResponseEntity<?> generateExistingSubscriptionSessions(List<SubscriptionEntity> subscriptions) {
-    //     try {
-    //         ObjectMapper objectMapper = new ObjectMapper(); // Jackson ObjectMapper for JSON conversion
-    //         // Create a map to hold the URLs for different subscription types
-    //         Map<String, Object> sessionUrls = new HashMap<>();
-    //         for (SubscriptionEntity subscription : subscriptions) {
-    //             for (ItemEntity item : subscription.getItems()) {
-    //                 String itemType = item.getType();
-    //                 String _pricingPageId = switch (itemType) {
-    //                     case "premium" ->
-    //                         pricingPageIdPremium;
-    //                     case "signature" ->
-    //                         pricingPageIdSignature;
-    //                     case "delight" ->
-    //                         pricingPageIdDelight;
-    //                     default ->
-    //                         pricingPageId; // Default to basic or other type
-    //                 };
-
-    //                 Result result = PricingPageSession.createForExistingSubscription()
-    //                         .pricingPageId(_pricingPageId)
-    //                         .subscriptionId(subscription.getId())
-    //                         .request();
-    //                 sessionUrls.put(itemType, objectMapper.convertValue(result.pricingPageSession(), new TypeReference<Map<String, Object>>() {}));
-    //             }
-    //             // Result result = PricingPageSession.createForExistingSubscription()
-    //             //         .pricingPageId(pricingPageId)
-    //             //         .subscriptionId(subscription..getId())
-    //             //         .request();
-    //             // sessionUrls.add(result.pricingPageSession().url());
-    //         }
-    //         return ResponseEntity.ok(sessionUrls);
-    //     } catch (Exception e) {
-    //         return ResponseEntity.badRequest().body(e.getMessage());
-    //     }
-    // }
-
     private ResponseEntity<?> generateExistingSubscriptionSessionURLs(List<SubscriptionEntity> subscriptions) {
     try {
         Map<String, Object> sessionUrls = new HashMap<>();
@@ -141,8 +104,8 @@ public class PricingPageController {
                 sessionUrls.put("premium", objectMapper.readValue(premiumSession.toJson(), new TypeReference<Map<String, Object>>() {}));
             }
         }
-        if (!sessionUrls.containsKey("signature")) {
-            PricingPageSession signatureSession = (PricingPageSession) generateNewSignatureSubscriptionPricingPage(subscriptions.getFirst().getCustomer().getId()).getBody();
+        if (!sessionUrls.containsKey("signature")) { 
+            PricingPageSession signatureSession = (PricingPageSession) generateNewSignatureSubscriptionPricingPage(subscriptions.get(0).getCustomer().getId()).getBody();
             if (signatureSession != null) {
                 sessionUrls.put("signature", objectMapper.readValue(signatureSession.toJson(), new TypeReference<Map<String, Object>>() {}));
             }
