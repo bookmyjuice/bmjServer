@@ -18,37 +18,34 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 @Entity
-@Table(name = "users", 
-    uniqueConstraints = { 
-      @UniqueConstraint(columnNames = "username"),
-      @UniqueConstraint(columnNames = "email") 
-    })
+@Table(name = "users", uniqueConstraints = {
+		@UniqueConstraint(columnNames = "username"),
+		@UniqueConstraint(columnNames = "email")
+})
 public class User {
-  @Id
-  @GeneratedValue(strategy = GenerationType.SEQUENCE, generator="user_seq")
-  @jakarta.persistence.SequenceGenerator(name="user_seq", sequenceName="user_seq", initialValue=500, allocationSize=1)
-  private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "user_seq")
+	@jakarta.persistence.SequenceGenerator(name = "user_seq", sequenceName = "user_seq", initialValue = 500, allocationSize = 1)
+	private Long id;
 
-  @NotBlank
-  @Size(max = 20)
-  private String username;
+	@NotBlank
+	@Size(max = 20)
+	private String username;
 
-  @NotBlank
-  @Size(max = 50)
-  @Email
-  private String email;
+	@NotBlank
+	@Size(max = 50)
+	@Email
+	private String email;
 
-  @NotBlank
-  @Size(max = 120)
-  private String password;
+	@NotBlank
+	@Size(max = 120)
+	private String password;
 
-  @ManyToMany(fetch = FetchType.LAZY)
-  @JoinTable(  name = "user_roles", 
-        joinColumns = @JoinColumn(name = "user_id"), 
-        inverseJoinColumns = @JoinColumn(name = "role_id"))
-  private Set<Role> roles = new HashSet<>();
+	@ManyToMany(fetch = FetchType.LAZY)
+	@JoinTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
+	private Set<com.bookmyjuice.models.Role> roles = new HashSet<>();
 
-  @Size(max = 120)
+	@Size(max = 120)
 	private String address;
 
 	@Size(max = 120)
@@ -68,55 +65,80 @@ public class User {
 	@Size(max = 6)
 	private String zip;
 
-  public User() {
-  }
+	@Size(max = 20)
+	private String phone;
 
-  public User(String username, String email, String password) {
-    this.username = username;
-    this.email = email;
-    this.password = password;
-  }
+	/**
+	 * Chargebee customer ID - links local user to Chargebee customer
+	 * Relationship: users.chargebee_customer_id = customers.id (1:1)
+	 */
+	@Column(name = "chargebee_customer_id", unique = true)
+	private String chargebeeCustomerId;
 
-  public Long getId() {
-    return id;
-  }
+	/**
+	 * Google Photo URL - populated when user signs up via Google
+	 * Read-only field (cannot be edited by user)
+	 */
+	@Column(name = "google_photo_url", length = 500)
+	private String googlePhotoUrl;
 
-  public void setId(Long id) {
-    this.id = id;
-  }
+	/**
+	 * Google ID - unique identifier from Google account
+	 * Used for Google sign-in authentication
+	 */
+	@Column(name = "google_id", unique = true)
+	private String googleId;
 
-  public String getUsername() {
-    return username;
-  }
+	public User() {
+	}
 
-  public void setUsername(String username) {
-    this.username = username;
-  }
+	public User(String username, String email, String password) {
+		this.username = username;
+		this.email = email;
+		this.password = password;
+	}
 
-  public String getEmail() {
-    return email;
-  }
+	public Long getId() {
+		return id;
+	}
 
-  public void setEmail(String email) {
-    this.email = email;
-  }
+	public void setId(Long id) {
+		this.id = id;
+	}
 
-  public String getPassword() {
-    return password;
-  }
+	public String getUsername() {
+		return username;
+	}
 
-  public void setPassword(String password) {
-    this.password = password;
-  }
+	public void setUsername(String username) {
+		this.username = username;
+	}
 
-  public Set<Role> getRoles() {
-    return roles;
-  }
+	public String getEmail() {
+		return email;
+	}
 
-  public void setRoles(Set<Role> roles) {
-    this.roles = roles;
-  }
-  public String getAddress() {
+	public void setEmail(String email) {
+		this.email = email;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
+	}
+
+	public Set<com.bookmyjuice.models.Role> getRoles() {
+		return roles;
+	}
+
+	public void setRoles(Set<com.bookmyjuice.models.Role> roles) {
+		this.roles = roles;
+	}
+
+	public String getAddress() {
 		return address;
 	}
 
@@ -187,5 +209,37 @@ public class User {
 	public void setZip(String zip) {
 		this.zip = zip;
 	}
-	
+
+	public String getPhone() {
+		return phone;
+	}
+
+	public void setPhone(String phone) {
+		this.phone = phone;
+	}
+
+	public String getChargebeeCustomerId() {
+		return chargebeeCustomerId;
+	}
+
+	public void setChargebeeCustomerId(String chargebeeCustomerId) {
+		this.chargebeeCustomerId = chargebeeCustomerId;
+	}
+
+	public String getGooglePhotoUrl() {
+		return googlePhotoUrl;
+	}
+
+	public void setGooglePhotoUrl(String googlePhotoUrl) {
+		this.googlePhotoUrl = googlePhotoUrl;
+	}
+
+	public String getGoogleId() {
+		return googleId;
+	}
+
+	public void setGoogleId(String googleId) {
+		this.googleId = googleId;
+	}
+
 }

@@ -7,7 +7,6 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.bookmyjuice.models.User;
 import com.bookmyjuice.repository.UserRepository;
 
 @Service
@@ -19,10 +18,19 @@ public class UserDetailsServiceImpl implements UserDetailsService {
   @Override
   @Transactional
   public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-    User user = userRepository.findByUsername(username)
-        .orElseThrow(() -> new UsernameNotFoundException("User Not Found with username: " + username));
+    // Try to find user by phone/username first
+    var user = userRepository.findByUsername(username);
+    
+    // If not found, try to find by email
+    if (!user.isPresent()) {
+      user = userRepository.findByEmail(username);
+    }
+    
+    if (!user.isPresent()) {
+      throw new UsernameNotFoundException("User Not Found with username or email: " + username);
+    }
 
-    return UserDetailsImpl.build(user);
+    return UserDetailsImpl.build(user.get());
   }
 
 }

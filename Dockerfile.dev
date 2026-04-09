@@ -1,0 +1,54 @@
+# ============================================================
+# BookMyJuice Backend - Development Dockerfile
+# ============================================================
+# Optimized for local development with hot-reload support
+# ============================================================
+
+FROM maven:3.9-eclipse-temurin-17
+
+WORKDIR /app
+
+# Install additional tools for development
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy pom.xml and download dependencies
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+
+# Copy source code
+COPY src ./src
+
+# Expose application and debug ports
+EXPOSE 8080
+EXPOSE 5005
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8080/api/health || exit 1
+
+# Run with Spring Boot devtools for hot-reload and debug enabled
+ENTRYPOINT ["./mvnw"]
+CMD ["spring-boot:run", "-Dspring-boot.run.jvmArguments='-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 -Xdebug -Dspring-boot.run.addResources=true'"]
+
+# ============================================================
+# Development Usage:
+# ============================================================
+# Build and run:
+#   docker-compose up backend
+#
+# With hot-reload, changes to Java files will automatically restart the app
+#
+# Debug from VS Code:
+#   - Set breakpoints in Java files
+#   - Use "Attach to Remote Java" debug configuration
+#   - Connect to localhost:5005
+#
+# Access Swagger UI:
+#   http://localhost:8080/swagger-ui.html
+#
+# View logs:
+#   docker-compose logs -f backend
+# ============================================================

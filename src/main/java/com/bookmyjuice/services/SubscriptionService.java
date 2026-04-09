@@ -1,6 +1,7 @@
 package com.bookmyjuice.services;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -15,8 +16,8 @@ import com.bookmyjuice.models.mappers.CustomerMapper;
 import com.bookmyjuice.models.mappers.SubscriptionItemMapper;
 import com.bookmyjuice.models.mappers.SubscriptionMapper;
 import com.bookmyjuice.repository.CustomerRepository;
-import com.bookmyjuice.repository.SubscriptionItemRepository;
-import com.bookmyjuice.repository.SubscriptionRepository;
+import com.bookmyjuice.repository.SubscriptionEntityRepository;
+import com.bookmyjuice.repository.SubscriptionItemEntityRepository;
 import com.chargebee.models.Event;
 
 @Service
@@ -25,10 +26,10 @@ public class SubscriptionService {
     private static final Logger logger = LogManager.getLogger(SubscriptionService.class);
 
     @Autowired
-    private SubscriptionItemRepository subscriptionItemRepository;
+    private SubscriptionItemEntityRepository subscriptionItemRepository;
 
     @Autowired
-    private SubscriptionRepository subscriptionRepository;
+    private SubscriptionEntityRepository subscriptionRepository;
 
     @Autowired
     private CustomerRepository customerRepository;
@@ -270,4 +271,9 @@ public class SubscriptionService {
         logger.info("Subscription renewed or created successfully: {}", subscription.getId());
         return true;
     }
+
+    public  Optional<SubscriptionEntity> findBySubscription(String id) {
+        logger.info("Fetching subscription items for subscription: {}", id);
+        return subscriptionRepository.findById(id);
+    }   
 }

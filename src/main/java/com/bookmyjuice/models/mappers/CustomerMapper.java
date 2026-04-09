@@ -77,4 +77,11 @@ public class CustomerMapper {
     }
 
     // Shipping address mapping removed as it's not supported on Customer
+
+    public static CustomerEntity fromId(String customerId) {
+        CustomerEntity customer = new CustomerEntity();
+        customer.setId(customerId);
+        // Optionally, fetch from DB if needed, or just set ID for mapping
+        return customer;
+    }
 }

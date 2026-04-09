@@ -1,8 +1,8 @@
 package com.bookmyjuice.controllers;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -11,10 +11,15 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.bookmyjuice.models.entities.ItemEntity;
+import com.bookmyjuice.models.entities.ItemPriceEntity;
 import com.bookmyjuice.models.entities.SubscriptionEntity;
+import com.bookmyjuice.repository.ItemPriceRepository;
+import com.bookmyjuice.repository.ItemRepository;
 import com.bookmyjuice.services.SubscriptionService;
 import com.bookmyjuice.services.UserDetailsImpl;
 import com.chargebee.Result;
@@ -34,6 +39,12 @@ public class PricingPageController {
     @Autowired
     SubscriptionService subscriptionService;
 
+    @Autowired
+    ItemRepository itemRepository;
+
+    @Autowired
+    ItemPriceRepository itemPriceRepository;
+
     @GetMapping("/generate_pricing_page_session_url")
     @PreAuthorize("hasRole('USER') or hasRole('MODERATOR') or hasRole('ADMIN')")
     public ResponseEntity<?> pricingPage() {
@@ -42,14 +53,16 @@ public class PricingPageController {
         if (customerId == null) {
             return ResponseEntity.badRequest().body("Customer ID not found");
         } else {
-            if (subscriptionService.existsByCustomerId(customerId)) {
-                return generateExistingSubscriptionSessionURLs(subscriptionService.findByCustomerId(customerId));
-            } else {
                 return generateNewSubscriptionSessionURLs(customerId);
-            }
-
         }
     }
+
+    @PostMapping("/generate_plan_change_session_url")
+    @PreAuthorize("hasRole('USER') or hasRole('MODERATOR') or hasRole('ADMIN')")
+    public ResponseEntity<?> planChangePricingPage(@RequestBody String subscriptionId) {
+            return generateExistingSubscriptionSessionURLs(subscriptionId);
+    }
+
 
     public String getUserIdFromSecurityContext() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -60,62 +73,63 @@ public class PricingPageController {
         return null; // Or throw an exception
     }
 
-    private ResponseEntity<?> generateExistingSubscriptionSessionURLs(List<SubscriptionEntity> subscriptions) {
+    private ResponseEntity<?> generateExistingSubscriptionSessionURLs(String subscriptionId) {
     try {
         Map<String, Object> sessionUrls = new HashMap<>();
-        ObjectMapper objectMapper = new ObjectMapper(); // Jackson ObjectMapper for JSON conversion
-
-        for (SubscriptionEntity subscription : subscriptions) {
-            String subscriptionId = subscription.getId();
-            if (subscription.getItems() != null && !subscription.getItems().isEmpty()) {
-                for (ItemEntity item : subscription.getItems()) {
-                    String itemFamilyId = item.getItemFamilyId();
-                    switch (itemFamilyId) {
-                        case "juices" -> {
+        ObjectMapper objectMapper = new ObjectMapper();
+        
+        Optional<SubscriptionEntity> s = subscriptionService.findBySubscription(subscriptionId);
+        if (s.isEmpty()) {
+            return ResponseEntity.badRequest().body("Subscription not found");
+        }
+        
+        SubscriptionEntity subscription = s.get();
+        if (subscription.getSubscriptionItems().isEmpty()) {
+            return ResponseEntity.badRequest().body("Subscription has no items");
+        }
+        
+        subscription.getSubscriptionItems().forEach(item -> {
+            String itemPriceId = item.getItemPriceId();
+            // Find ItemPrice first, then get the associated Item
+            ItemPriceEntity itemPrice = itemPriceRepository.findById(itemPriceId).orElse(null);
+            if (itemPrice != null && itemPrice.getItem() != null) {
+                ItemEntity itemEntity = itemPrice.getItem();
+                String itemFamilyId = itemEntity.getItemFamilyId();
+                switch (itemFamilyId) {
+                    case "Premium" -> {
+                        try {
                             PricingPageSession premiumSession = (PricingPageSession) generateExistingPremiumSubscriptionSession(subscriptionId).getBody();
                             if (premiumSession != null) {
-                            sessionUrls.put("premium", objectMapper.readValue(premiumSession.toJson(), new TypeReference<Map<String, Object>>() {}));
+                                sessionUrls.put("premium", objectMapper.readValue(premiumSession.toJson(), new TypeReference<Map<String, Object>>() {}));
                             }
+                        } catch (Exception e) {
+                            // Handle exception
                         }
-                        case "signature-juices" -> {
+                    }
+                    case "Signature" -> {
+                        try {
                             PricingPageSession signatureSession = (PricingPageSession) generateExistingSignatureSubscriptionSession(subscriptionId).getBody();
                             if (signatureSession != null) {
-                            sessionUrls.put("signature", objectMapper.readValue(signatureSession.toJson(), new TypeReference<Map<String, Object>>() {}));
+                                sessionUrls.put("signature", objectMapper.readValue(signatureSession.toJson(), new TypeReference<Map<String, Object>>() {}));
                             }
+                        } catch (Exception e) {
+                            // Handle exception
                         }
-                        case "delight-juices" -> {
+                    }
+                    case "Delight" -> {
+                        try {
                             PricingPageSession delightSession = (PricingPageSession) generateExistingDelightSubscriptionSession(subscriptionId).getBody();
                             if (delightSession != null) {
-                            sessionUrls.put("delight", objectMapper.readValue(delightSession.toJson(), new TypeReference<Map<String, Object>>() {}));
+                                sessionUrls.put("delight", objectMapper.readValue(delightSession.toJson(), new TypeReference<Map<String, Object>>() {}));
                             }
-                        }
-                        
-                        default -> {
+                        } catch (Exception e) {
+                            // Handle exception
                         }
                     }
                 }
             }
-        }
-
-        // Check for missing options and generate new sessions if necessary
-        if (!sessionUrls.containsKey("premium")) {
-            PricingPageSession premiumSession = (PricingPageSession) generateNewPremiumSubscriptionPricingPage(subscriptions.get(0).getCustomer().getId()).getBody();
-            if (premiumSession != null) {
-                sessionUrls.put("premium", objectMapper.readValue(premiumSession.toJson(), new TypeReference<Map<String, Object>>() {}));
-            }
-        }
-        if (!sessionUrls.containsKey("signature")) { 
-            PricingPageSession signatureSession = (PricingPageSession) generateNewSignatureSubscriptionPricingPage(subscriptions.get(0).getCustomer().getId()).getBody();
-            if (signatureSession != null) {
-                sessionUrls.put("signature", objectMapper.readValue(signatureSession.toJson(), new TypeReference<Map<String, Object>>() {}));
-            }
-        }
-        if (!sessionUrls.containsKey("delight")) {
-            PricingPageSession delightSession = (PricingPageSession) generateNewDelightSubscriptionPricingPage(subscriptions.get(0).getCustomer().getId()).getBody();
-            if (delightSession != null) {
-                sessionUrls.put("delight", objectMapper.readValue(delightSession.toJson(), new TypeReference<Map<String, Object>>() {}));
-            }
-        }
+        });
+        
         return ResponseEntity.ok(sessionUrls);
     } catch (Exception e) {
         return ResponseEntity.badRequest().body(e.getMessage());

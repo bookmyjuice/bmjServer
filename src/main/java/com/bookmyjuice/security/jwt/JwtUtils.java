@@ -1,9 +1,6 @@
-// <<<<<<<< HEAD:src/main/java/com/bookmyjuice/security/jwt/JwtUtils.java
 package com.bookmyjuice.security.jwt;
-// ========
-// package online.bmj.www.security.jwt;
-// >>>>>>>> d97884e9565256ce746f426f71499cf53ac87269:src/main/java/online/bmj/www/security/jwt/JwtUtils.java
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 
@@ -11,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import com.bookmyjuice.services.UserDetailsImpl;
@@ -20,7 +18,6 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.UnsupportedJwtException;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 
 @Component
@@ -44,18 +41,19 @@ public class JwtUtils {
         .signWith(key(), SignatureAlgorithm.HS256)
         .compact();
   }
-  
+
   private Key key() {
-    return Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
+    // Use getBytes() instead of Decoders.BASE64.decode()
+    return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
   }
 
   public String getUserNameFromJwtToken(String token) {
     return Jwts.parserBuilder().setSigningKey(key()).build()
-               .parseClaimsJws(token).getBody().getSubject();
+        .parseClaimsJws(token).getBody().getSubject();
   }
 
   public boolean validateJwtToken(String authToken) {
-    if(authToken == null || authToken.isEmpty()) {
+    if (authToken == null || authToken.isEmpty()) {
       return false;
     }
     try {
@@ -72,5 +70,20 @@ public class JwtUtils {
     }
 
     return false;
+  }
+
+  public static String getUserIdFromSecurityContext() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    // Authentication authentication =
+    // SecurityContextHolder.getContext().getAuthentication();
+    System.out.println("Auth: " + authentication);
+    if (authentication != null) {
+      System.out.println("Principal class: " + authentication.getPrincipal().getClass().getName());
+    }
+    if (authentication != null && authentication.getPrincipal() instanceof UserDetailsImpl) {
+      UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+      return userDetails.getId().toString();
+    }
+    return null; // Or throw an exception
   }
 }

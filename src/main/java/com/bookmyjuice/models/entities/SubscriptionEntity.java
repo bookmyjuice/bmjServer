@@ -15,7 +15,7 @@ import jakarta.persistence.Table;
 @Entity
 @Table(name = "subscription_entity")
 public class SubscriptionEntity {
-   @Id
+    @Id
     private String id;
     private int billingPeriod;
     private String billingPeriodUnit;
@@ -56,10 +56,10 @@ public class SubscriptionEntity {
     private CustomerEntity customer;
 
     @OneToMany(mappedBy = "subscription", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ItemEntity> items = new ArrayList<>();
+    public List<ItemEntity> items = new ArrayList<>();
 
     @OneToMany(mappedBy = "subscription", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<SubscriptionItemEntity> subscriptionItems = new ArrayList<>();
+    public List<SubscriptionItemEntity> subscriptionItems = new ArrayList<>();
 
     @ManyToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "shipping_address_id")
@@ -76,6 +76,9 @@ public class SubscriptionEntity {
             this.subscriptionItems.addAll(subscriptionItems); // Add the new items to the existing collection
         }
     }
+
+    
+
     public String getId() {
         return id;
     }

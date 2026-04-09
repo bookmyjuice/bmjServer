@@ -1,0 +1,16 @@
+2026-04-02 11:08:59.572 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-04-02 11:08:59.923 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Bad credentials
+2026-04-02 11:12:24.000 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-04-02 11:12:24.259 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Bad credentials
+2026-04-02 11:49:12.861 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-04-02 11:49:13.272 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Bad credentials
+2026-04-02 11:52:30.447 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-04-02 11:52:30.722 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Bad credentials
+2026-04-02 11:56:01.885 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-04-02 11:56:02.166 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Bad credentials
+2026-04-02 11:57:10.788 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-04-02 11:57:11.080 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Bad credentials
+2026-04-02 11:58:52.734 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-04-02 11:58:53.000 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Bad credentials
+2026-04-02 12:01:05.421 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-04-02 12:01:05.743 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Bad credentials

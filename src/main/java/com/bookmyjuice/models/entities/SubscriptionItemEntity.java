@@ -1,5 +1,7 @@
 package com.bookmyjuice.models.entities;
 
+import java.util.Optional;
+
 import com.chargebee.models.Subscription.SubscriptionItem.ItemType;
 
 import jakarta.annotation.Nullable;
@@ -296,5 +298,10 @@ public class SubscriptionItemEntity {
 
     public void setSubscription(SubscriptionEntity subscription) {
         this.subscription = subscription;
+    }
+
+    public Optional<CustomerEntity> findById(String itemPriceId2) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'findById'");
     }
 }

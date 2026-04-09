@@ -1,0 +1,53 @@
+2026-03-26 10:23:12.449 [HikariPool-1 housekeeper] WARN  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=17h9m18s9ms76µs).
+2026-03-26 10:45:17.560 [SpringApplicationShutdownHook] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-03-26 10:45:17.573 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-03-26 10:45:17.590 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2026-03-26 10:46:07.442 [main] INFO  com.bookmyjuice.bmjServer - Starting bmjServer using Java 21.0.3 with PID 14572 (X:\BMJ\bmjServer\target\classes started by BHARA in X:\BMJ\bmjServer)
+2026-03-26 10:46:07.446 [main] INFO  com.bookmyjuice.bmjServer - No active profile set, falling back to 1 default profile: "default"
+2026-03-26 10:46:08.445 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-03-26 10:46:08.544 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 93 ms. Found 15 JPA repository interfaces.
+2026-03-26 10:46:09.149 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port(s): 8080 (http)
+2026-03-26 10:46:09.156 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-03-26 10:46:09.157 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.8]
+2026-03-26 10:46:09.266 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2026-03-26 10:46:09.267 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 1750 ms
+2026-03-26 10:46:09.814 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-03-26 10:46:09.839 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-03-26 10:46:09.998 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@7884f722
+2026-03-26 10:46:10.003 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-03-26 10:46:12.080 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-03-26 10:46:12.421 [main] INFO  com.bookmyjuice.ChargeBeeConfig - ChargeBee configured successfully for site: bookmyjuice-test
+2026-03-26 10:46:12.573 [main] INFO  o.s.d.j.r.query.QueryEnhancerFactory - Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-03-26 10:46:13.251 [main] INFO  c.b.services.IdempotencyService - IdempotencyService initialized with cleanup interval of 4 hours
+2026-03-26 10:46:13.313 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-03-26 10:46:13.345 [main] DEBUG o.s.s.c.a.a.c.AuthenticationConfiguration$DefaultPasswordEncoderAuthenticationManagerBuilder - No authenticationProviders and no parentAuthenticationManager defined. Returning null.
+2026-03-26 10:46:13.657 [main] INFO  o.s.b.a.e.web.EndpointLinksResolver - Exposing 2 endpoint(s) beneath base path '/actuator'
+2026-03-26 10:46:13.709 [main] INFO  o.s.s.web.DefaultSecurityFilterChain - Will secure any request with [org.springframework.security.web.session.DisableEncodeUrlFilter@58a5b377, org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@54c8b990, org.springframework.security.web.context.SecurityContextHolderFilter@745f4c49, org.springframework.security.web.header.HeaderWriterFilter@79a4f733, org.springframework.web.filter.CorsFilter@680a5de1, org.springframework.security.web.authentication.logout.LogoutFilter@55744b16, com.bookmyjuice.security.RateLimitingFilter@1c5d3a37, com.bookmyjuice.security.jwt.AuthTokenFilter@9751c9, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@427b8fe4, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@56510bb2, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@5679e277, org.springframework.security.web.session.SessionManagementFilter@48f359e4, org.springframework.security.web.access.ExceptionTranslationFilter@d86a616, org.springframework.security.web.access.intercept.AuthorizationFilter@3a1e803]
+2026-03-26 10:46:13.819 [main] INFO  o.s.s.web.DefaultSecurityFilterChain - Will secure Or [Mvc [pattern='/api/webhooks/**']] with [org.springframework.security.web.session.DisableEncodeUrlFilter@2ee17b74, org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@1f8dbc5d, org.springframework.security.web.context.SecurityContextHolderFilter@21833d72, org.springframework.security.web.header.HeaderWriterFilter@5d4838fc, org.springframework.web.filter.CorsFilter@32cc87e0, org.springframework.security.web.authentication.logout.LogoutFilter@2324100b, org.springframework.security.web.authentication.www.BasicAuthenticationFilter@11eafb54, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@17a65cb1, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@bb51961, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@743afab6, org.springframework.security.web.session.SessionManagementFilter@58989a4c, org.springframework.security.web.access.ExceptionTranslationFilter@867ce95, org.springframework.security.web.access.intercept.AuthorizationFilter@32c77e0d]
+2026-03-26 10:46:14.116 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port(s): 8080 (http) with context path ''
+2026-03-26 10:46:14.125 [main] INFO  com.bookmyjuice.bmjServer - Started bmjServer in 7.379 seconds (process running for 7.906)
+2026-03-26 10:46:14.261 [main] INFO  c.b.services.ChargebeeSyncService - 🚀 Starting Chargebee data synchronization on application startup...
+2026-03-26 10:46:14.265 [pool-3-thread-1] INFO  c.b.services.ChargebeeSyncService - 🔄 Synchronizing Items from Chargebee...
+2026-03-26 10:46:14.267 [pool-3-thread-2] INFO  c.b.services.ChargebeeSyncService - 🔄 Synchronizing Customers from Chargebee...
+2026-03-26 10:46:14.271 [pool-3-thread-3] INFO  c.b.services.ChargebeeSyncService - 🔄 Synchronizing Orders from Chargebee...
+2026-03-26 10:46:16.567 [pool-3-thread-3] INFO  c.b.services.ChargebeeSyncService - Processing 2 orders from Chargebee
+2026-03-26 10:46:16.741 [pool-3-thread-3] INFO  c.b.services.ChargebeeSyncService - 📊 Orders sync completed - Total: 2, New: 0, Updated: 2
+2026-03-26 10:46:16.924 [pool-3-thread-1] INFO  c.b.services.ChargebeeSyncService - Processing 20 items from Chargebee
+2026-03-26 10:46:17.342 [pool-3-thread-2] INFO  c.b.services.ChargebeeSyncService - Processing 31 customers from Chargebee
+2026-03-26 10:46:17.472 [pool-3-thread-1] INFO  c.b.services.ChargebeeSyncService - 📊 Items sync completed - Total: 20, New: 0, Updated: 20
+2026-03-26 10:46:17.473 [pool-3-thread-3] INFO  c.b.services.ChargebeeSyncService - 🔄 Synchronizing Item Prices from Chargebee...
+2026-03-26 10:46:17.473 [pool-3-thread-1] INFO  c.b.services.ChargebeeSyncService - 🔄 Synchronizing Subscriptions from Chargebee...
+2026-03-26 10:46:17.904 [pool-3-thread-2] INFO  c.b.services.ChargebeeSyncService - 📊 Customers sync completed - Total: 31, New: 0, Updated: 31
+2026-03-26 10:46:18.594 [pool-3-thread-1] INFO  c.b.services.ChargebeeSyncService - Processing 16 subscriptions from Chargebee
+2026-03-26 10:46:18.984 [pool-3-thread-1] INFO  c.b.services.ChargebeeSyncService - 📊 Subscriptions sync completed - Total: 16, New: 0, Updated: 16
+2026-03-26 10:46:19.068 [pool-3-thread-3] INFO  c.b.services.ChargebeeSyncService - Processing 32 item prices from Chargebee
+2026-03-26 10:46:19.543 [pool-3-thread-3] INFO  c.b.services.ChargebeeSyncService - 📊 Item Prices sync completed - Total: 32, New: 0, Updated: 32, Orphaned: 0
+2026-03-26 10:46:19.544 [main] INFO  c.b.services.ChargebeeSyncService - ✅ Chargebee data synchronization completed successfully!
+2026-03-26 10:46:42.877 [http-nio-0.0.0.0-8080-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-03-26 10:46:42.929 [http-nio-0.0.0.0-8080-exec-1] DEBUG o.s.security.web.FilterChainProxy - Securing GET /api/subscriptions/my
+2026-03-26 10:46:43.042 [http-nio-0.0.0.0-8080-exec-1] DEBUG o.s.security.web.FilterChainProxy - Secured GET /api/subscriptions/my
+2026-03-26 10:46:43.060 [http-nio-0.0.0.0-8080-exec-1] DEBUG o.s.s.a.m.AuthorizationManagerBeforeMethodInterceptor - Authorizing method invocation ReflectiveMethodInvocation: public org.springframework.http.ResponseEntity com.bookmyjuice.controllers.SubscriptionController.getMySubscriptions(); target is of class [com.bookmyjuice.controllers.SubscriptionController]
+2026-03-26 10:46:43.111 [http-nio-0.0.0.0-8080-exec-1] DEBUG o.s.s.a.m.AuthorizationManagerBeforeMethodInterceptor - Authorized method invocation ReflectiveMethodInvocation: public org.springframework.http.ResponseEntity com.bookmyjuice.controllers.SubscriptionController.getMySubscriptions(); target is of class [com.bookmyjuice.controllers.SubscriptionController]
+2026-03-26 14:42:35.052 [SpringApplicationShutdownHook] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-03-26 14:42:35.063 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-03-26 14:42:35.069 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.

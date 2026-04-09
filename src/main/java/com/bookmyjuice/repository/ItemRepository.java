@@ -12,4 +12,11 @@ import com.bookmyjuice.models.entities.ItemEntity;
 public interface ItemRepository extends JpaRepository<ItemEntity, String> {
     @Query("SELECT i FROM ItemEntity i WHERE i.subscription.id = :subscriptionId")
     List<ItemEntity> findBySubscription(@Param("subscriptionId") String subscriptionId);
+    
+    @Query("SELECT i FROM ItemEntity i WHERE i.type = 'CHARGE' AND i.status = 'ACTIVE' AND i.archived = false AND " +
+           "(LOWER(i.name) LIKE %:searchTerm% OR LOWER(i.itemFamilyId) LIKE %:searchTerm%)")
+    List<ItemEntity> findJuiceItems(@Param("searchTerm") String searchTerm);
+    
+    @Query("SELECT i FROM ItemEntity i WHERE i.type = 'CHARGE' AND i.status = 'ACTIVE' AND i.archived = false")
+    List<ItemEntity> findAllActiveChargeItems();
 }
