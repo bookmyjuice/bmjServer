@@ -64,6 +64,13 @@
             <version>3.29.0</version>
         </dependency>
 
+        <!-- Removed FCM dependency for MVP local-only notifications -->
+        <!-- <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>9.2.0</version>
+        </dependency> -->
+
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
@@ -202,6 +209,7 @@
                             <version>1.18.30</version>
                         </path>
                     </annotationProcessorPaths>
+                    <forceJavacCompilerUse>true</forceJavacCompilerUse>
                 </configuration>
             </plugin>
 

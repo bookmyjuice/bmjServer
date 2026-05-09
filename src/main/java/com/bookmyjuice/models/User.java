@@ -3,6 +3,7 @@ package com.bookmyjuice.models;
 import java.util.HashSet;
 import java.util.Set;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -88,6 +89,25 @@ public class User {
 	 */
 	@Column(name = "google_id", unique = true)
 	private String googleId;
+
+	/**
+	 * Soft delete flag - when true, user is considered deleted
+	 */
+	@Column(name = "deleted", nullable = false)
+	private boolean deleted = false;
+
+	/**
+	 * Timestamp when user was soft deleted
+	 */
+	@Column(name = "deleted_at")
+	private java.time.LocalDateTime deletedAt;
+
+	/**
+	 * Token version - incremented on password change/logout to invalidate old
+	 * tokens
+	 */
+	@Column(name = "token_version", nullable = false)
+	private int tokenVersion = 1;
 
 	public User() {
 	}
@@ -240,6 +260,37 @@ public class User {
 
 	public void setGoogleId(String googleId) {
 		this.googleId = googleId;
+	}
+
+	public boolean isDeleted() {
+		return deleted;
+	}
+
+	public void setDeleted(boolean deleted) {
+		this.deleted = deleted;
+	}
+
+	public java.time.LocalDateTime getDeletedAt() {
+		return deletedAt;
+	}
+
+	public void setDeletedAt(java.time.LocalDateTime deletedAt) {
+		this.deletedAt = deletedAt;
+	}
+
+	public int getTokenVersion() {
+		return tokenVersion;
+	}
+
+	public void setTokenVersion(int tokenVersion) {
+		this.tokenVersion = tokenVersion;
+	}
+
+	/**
+	 * Increment token version to invalidate all existing sessions.
+	 */
+	public void invalidateAllTokens() {
+		this.tokenVersion++;
 	}
 
 }

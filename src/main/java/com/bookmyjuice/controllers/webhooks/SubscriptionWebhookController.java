@@ -37,28 +37,54 @@ public class SubscriptionWebhookController {
     public ResponseEntity<String> handleSubscriptionWebhook(@RequestBody Map<String, Object> e) {
         try {
             Event event = Event.retrieve(e.get("id").toString()).request().event();
+            String eventId = event.id();
+            String eventType = event.eventType().name();
 
-            // Idempotency check
-            if (idempotencyService.isEventProcessed(event.id())) {
-                if(subscriptionService.existsByCustomerId(event.content().subscription().customerId())){
-                    logger.info("Subscription event already processed for customer ID: {}", event.content().subscription().customerId());
-                    return ResponseEntity.status(200).body("Subscription-creation already processed");
+            // Start processing with database-level locking
+            if (!idempotencyService.startEventProcessing(eventId, eventType)) {
+                if (idempotencyService.isEventProcessed(eventId)) {
+                    if (subscriptionService.existsByCustomerId(event.content().subscription().customerId())) {
+                        logger.info("Subscription event already processed for customer ID: {}",
+                                event.content().subscription().customerId());
+                        return ResponseEntity.status(200).body("Subscription-creation already processed");
+                    } else {
+                        logger.warn(
+                                "Subscription event already processed but no subscription found for customer ID: {}",
+                                event.content().subscription().customerId());
+                        return ResponseEntity.status(200).body("Event already processed");
+                    }
                 } else {
-                    logger.warn("Subscription event already processed but no subscription found for customer ID: {}", event.content().subscription().customerId());
-                    return ResponseEntity.status(200).body("Event already processed");
+                    return ResponseEntity.status(409).body("Event is currently being processed");
                 }
             }
-            idempotencyService.markEventAsProcessed(event.id());
-            
-            logger.debug("Event type: {}", event.eventType().getClass().getName());
-            logger.debug("Event type value: {}", event.eventType());
-            
-            // Use the WebhookEventProcessor for comprehensive handling
-            return webhookEventProcessor.processSubscriptionEvent(event);
-            
+
+            try {
+                logger.debug("Event type: {}", event.eventType().getClass().getName());
+                logger.debug("Event type value: {}", event.eventType());
+
+                // Use the WebhookEventProcessor for comprehensive handling
+                ResponseEntity<String> result = webhookEventProcessor.processSubscriptionEvent(event);
+
+                // Mark as completed if successful
+                if (result.getStatusCode().is2xxSuccessful()) {
+                    idempotencyService.markEventCompleted(eventId);
+                } else {
+                    idempotencyService.markEventFailed(eventId,
+                            "Processing failed with status: " + result.getStatusCode());
+                }
+
+                return result;
+
+            } catch (Exception processingEx) {
+                logger.error("Error processing subscription webhook: {}", processingEx.getMessage(), processingEx);
+                idempotencyService.markEventFailed(eventId, processingEx.getMessage());
+                return ResponseEntity.status(500)
+                        .body("Error processing subscription webhook: " + processingEx.getMessage());
+            }
+
         } catch (Exception ex) {
-            logger.error("Error processing subscription webhook: {}", ex.getMessage(), ex);
-            return ResponseEntity.status(500).body("Error processing subscription webhook: " + ex.getMessage());
+            logger.error("Error retrieving subscription webhook event: {}", ex.getMessage(), ex);
+            return ResponseEntity.status(500).body("Error retrieving subscription webhook event: " + ex.getMessage());
         }
     }
 }

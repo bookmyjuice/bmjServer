@@ -275,7 +275,7 @@ public class MetadataTestController {
             entity.setStatus(status);
             entity.setType(type);
             entity.setUnit(unit);
-            entity.setItemFamilyId(itemFamilyId);
+            entity.setProductFamilyId(itemFamilyId);
             entity.setEnabledForCheckout(enabledForCheckout != null ? enabledForCheckout : false);
             entity.setEnabledInPortal(enabledInPortal != null ? enabledInPortal : false);
             

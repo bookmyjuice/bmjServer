@@ -147,14 +147,6 @@ public class ItemEntity {
         this.enabledForCheckout = enabledForCheckout;
     }
 
-    public String getItemFamilyId() {
-        return itemFamilyId;
-    }
-
-    public void setItemFamilyId(String itemFamilyId) {
-        this.itemFamilyId = itemFamilyId;
-    }
-
     public String getMetaData() {
         return metaData;
     }

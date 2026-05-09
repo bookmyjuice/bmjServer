@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.bookmyjuice.repository.UserRepository;
 import com.bookmyjuice.services.CustomerService;
 import com.bookmyjuice.services.IdempotencyService;
 import com.bookmyjuice.services.OrderService;
@@ -31,15 +32,19 @@ public class OrderWebhookController {
     @Autowired
     private IdempotencyService idempotencyService;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @PostMapping("/orders")
     @ResponseBody
     public ResponseEntity<String> handleOrderWebhook(@RequestBody Map<String, Object> e) {
         try {
-            com.chargebee.models.Event event = com.chargebee.models.Event.retrieve(e.get("id").toString()).request().event();
+            com.chargebee.models.Event event = com.chargebee.models.Event.retrieve(e.get("id").toString()).request()
+                    .event();
             if (idempotencyService.checkAndMarkEvent(event.id())) {
                 return ResponseEntity.status(200).body("Order event already processed");
             }
-            
+
             String eventType = event.eventType().name();
             switch (eventType) {
                 case "ORDER_CREATED":
@@ -48,6 +53,16 @@ public class OrderWebhookController {
                     orderService.saveOrUpdateOrder(event);
                     customerService.saveCustomer(event); // idempotent
                     return ResponseEntity.status(200).body("Order event processed");
+                }
+                case "ORDER_SHIPPED": {
+                    orderService.saveOrUpdateOrder(event);
+                    customerService.saveCustomer(event); // idempotent
+                    return ResponseEntity.status(200).body("Order shipped event processed");
+                }
+                case "ORDER_DELIVERED": {
+                    orderService.saveOrUpdateOrder(event);
+                    customerService.saveCustomer(event); // idempotent
+                    return ResponseEntity.status(200).body("Order delivered event processed");
                 }
                 case "ORDER_DELETED":
                 case "ORDER_CANCELLED": {

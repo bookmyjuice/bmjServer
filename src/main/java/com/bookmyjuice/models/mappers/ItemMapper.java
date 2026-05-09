@@ -25,7 +25,7 @@ public class ItemMapper {
         entity.setExternalName(item.externalName());
         entity.setEnabledInPortal(item.enabledInPortal() != null ? item.enabledInPortal() : false);
         entity.setEnabledForCheckout(item.enabledForCheckout() != null ? item.enabledForCheckout() : false);
-        entity.setItemFamilyId(item.itemFamilyId());
+        entity.setProductFamilyId(item.itemFamilyId());
         entity.setUnit(item.unit());
         // Set default values for fields that may not be available in all Chargebee versions
         entity.setArchived(false); // Default to not archived

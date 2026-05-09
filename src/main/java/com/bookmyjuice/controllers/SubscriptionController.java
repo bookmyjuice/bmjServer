@@ -28,6 +28,7 @@ import com.bookmyjuice.models.entities.SubscriptionEntity;
 import com.bookmyjuice.repository.CustomerRepository;
 import com.bookmyjuice.repository.SubscriptionEntityRepository;
 import com.bookmyjuice.services.SubscriptionApiService;
+import com.bookmyjuice.services.SubscriptionBusinessRulesService;
 import com.bookmyjuice.services.UserDetailsImpl;
 import com.chargebee.models.HostedPage;
 
@@ -50,6 +51,9 @@ public class SubscriptionController {
 
     @Autowired
     private CustomerRepository customerRepository;
+
+    @Autowired
+    private SubscriptionBusinessRulesService businessRulesService;
 
     /**
      * Get all subscriptions for the current user
@@ -143,16 +147,22 @@ public class SubscriptionController {
     }
 
     /**
-     * Pause a subscription
+     * BR-041: Pause a subscription. Enforces 9 PM IST cutoff.
      */
     @PutMapping("/{subscriptionId}/pause")
     @PreAuthorize("hasRole('USER') or hasRole('MODERATOR') or hasRole('ADMIN')")
     public ResponseEntity<?> pauseSubscription(@PathVariable String subscriptionId) {
         try {
+            // Check 9 PM IST cutoff using centralized business rules
+            if (!businessRulesService.isSubscriptionActionAllowed()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", businessRulesService.getCutoffMessage()));
+            }
+
             boolean success = subscriptionApiService.pauseSubscription(subscriptionId);
 
             if (success) {
-                return ResponseEntity.ok(Map.of(
+                return ResponseEntity.accepted().body(Map.of(
                         "status", "success",
                         "message", "Subscription paused successfully",
                         "subscriptionId", subscriptionId));
@@ -168,16 +178,22 @@ public class SubscriptionController {
     }
 
     /**
-     * Resume a paused subscription
+     * BR-042: Resume a paused subscription. Enforces 9 PM IST cutoff.
      */
     @PutMapping("/{subscriptionId}/resume")
     @PreAuthorize("hasRole('USER') or hasRole('MODERATOR') or hasRole('ADMIN')")
     public ResponseEntity<?> resumeSubscription(@PathVariable String subscriptionId) {
         try {
+            // Check 9 PM IST cutoff using centralized business rules
+            if (!businessRulesService.isSubscriptionActionAllowed()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", businessRulesService.getCutoffMessage()));
+            }
+
             boolean success = subscriptionApiService.resumeSubscription(subscriptionId);
 
             if (success) {
-                return ResponseEntity.ok(Map.of(
+                return ResponseEntity.accepted().body(Map.of(
                         "status", "success",
                         "message", "Subscription resumed successfully",
                         "subscriptionId", subscriptionId));
@@ -193,16 +209,23 @@ public class SubscriptionController {
     }
 
     /**
-     * Cancel a subscription
+     * BR-043: Cancel a subscription. Returns 202 — mobile must refetch to confirm.
+     * Enforces 9 PM IST cutoff.
      */
     @DeleteMapping("/{subscriptionId}")
     @PreAuthorize("hasRole('USER') or hasRole('MODERATOR') or hasRole('ADMIN')")
     public ResponseEntity<?> cancelSubscription(@PathVariable String subscriptionId) {
         try {
+            // Check 9 PM IST cutoff using centralized business rules
+            if (!businessRulesService.isSubscriptionActionAllowed()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", businessRulesService.getCutoffMessage()));
+            }
+
             boolean success = subscriptionApiService.cancelSubscription(subscriptionId);
 
             if (success) {
-                return ResponseEntity.ok(Map.of(
+                return ResponseEntity.accepted().body(Map.of(
                         "status", "success",
                         "message", "Subscription canceled successfully",
                         "subscriptionId", subscriptionId));

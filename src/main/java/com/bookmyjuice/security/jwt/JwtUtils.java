@@ -30,16 +30,36 @@ public class JwtUtils {
   @Value("${bezkoder.app.jwtExpirationMs}")
   private int jwtExpirationMs;
 
-  public String generateJwtToken(Authentication authentication) {
+  public String generateJwtToken(Authentication authentication, int tokenVersion) {
 
     UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
 
     return Jwts.builder()
         .setSubject((userPrincipal.getUsername()))
+        .claim("tokenVersion", tokenVersion)
         .setIssuedAt(new Date())
         .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
         .signWith(key(), SignatureAlgorithm.HS256)
         .compact();
+  }
+
+  public String generateJwtToken(Authentication authentication) {
+    return generateJwtToken(authentication, 1);
+  }
+
+  public int getTokenVersionFromJwtToken(String token) {
+    try {
+      Object version = Jwts.parserBuilder().setSigningKey(key()).build()
+          .parseClaimsJws(token).getBody().get("tokenVersion");
+      if (version instanceof Integer) {
+        return (Integer) version;
+      } else if (version instanceof Number) {
+        return ((Number) version).intValue();
+      }
+    } catch (Exception e) {
+      logger.warn("Could not extract token version: {}", e.getMessage());
+    }
+    return 0;
   }
 
   private Key key() {

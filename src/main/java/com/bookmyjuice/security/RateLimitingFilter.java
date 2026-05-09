@@ -1,15 +1,16 @@
 package com.bookmyjuice.security;
 
+import java.io.IOException;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
 
 /**
  * Rate limiting filter that protects authentication endpoints from brute force
@@ -22,7 +23,11 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     private final RateLimiterService rateLimiterService;
     private static final String[] PROTECTED_PATHS = {
             "/api/auth/signin",
-            "/api/auth/signup"
+            "/api/auth/signup",
+            "/api/auth/login-otp",
+            "/api/auth/send-otp",
+            "/api/auth/reset-password-mobile",
+            "/api/auth/reset-password-email"
     };
 
     public RateLimitingFilter(RateLimiterService rateLimiterService) {

@@ -1,0 +1,71 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+    branches: [ "master", "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # Service container for MySQL
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: bmj_db
+          MYSQL_USER: bmj
+          MYSQL_PASSWORD: bmjpass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      # Install MySQL client to create the database before tests run
+      - name: Install MySQL Client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y default-mysql-client
+
+      - name: Create test database
+        run: |
+          mysql --host=127.0.0.1 --port=3306 -uroot -prootpass -e "CREATE DATABASE IF NOT EXISTS bmj_db;"
+
+      - name: Build and Test with Maven
+        run: mvn clean verify -Dspring.profiles.active=test
+        env:
+          # These env vars are available to the Spring Boot app if it uses ${VAR} syntax
+          # However, we also have application-test.properties. 
+          # This ensures overrides work if properties files are missing keys.
+          SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/bmj_db?allowPublicKeyRetrieval=true&useSSL=false
+          SPRING_DATASOURCE_USERNAME: bmj
+          SPRING_DATASOURCE_PASSWORD: bmjpass
+          CHARGEBEE_SITE: test-site
+          CHARGEBEE_API_KEY: test_api_key_for_ci
+          JWT_SECRET: test_jwt_secret_for_ci_must_be_32_chars_long
+          WEBHOOK_USERNAME: webhook_user
+          WEBHOOK_PASSWORD: webhook_pass
+          MAIL_PASSWORD: test_pass
+
+      - name: Upload Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: target/surefire-reports/

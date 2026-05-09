@@ -27,6 +27,24 @@ import com.chargebee.models.PricingPageSession;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+/**
+ * DEPRECATED: Generates Chargebee Pricing Page Sessions for plan discovery
+ * and subscription management.
+ * 
+ * Per enterprise architecture decision (ARCHITECTURE_OVERVIEW.md v3.0):
+ * - All plan discovery, detail, comparison, and subscription management
+ *   must use NATIVE BMJ screens (Flutter), NOT Chargebee-hosted pages.
+ * - Chargebee Pricing Pages are REMOVED from user-facing flows.
+ * - Only Chargebee Hosted Checkout is retained for final payment completion.
+ * 
+ * Replacement: Use BillingController for native billing orchestration
+ * and SubscriptionController for native subscription management.
+ * 
+ * @deprecated Use native BMJ billing/subscription endpoints instead.
+ *     Scheduled for removal in next major release.
+ *     See docs/NATIVE_BILLING_FLOW.md for the replacement architecture.
+ */
+@Deprecated(since = "2026-05-08", forRemoval = true)
 @Controller
 @RequestMapping("api/test")
 public class PricingPageController {
@@ -94,7 +112,7 @@ public class PricingPageController {
             ItemPriceEntity itemPrice = itemPriceRepository.findById(itemPriceId).orElse(null);
             if (itemPrice != null && itemPrice.getItem() != null) {
                 ItemEntity itemEntity = itemPrice.getItem();
-                String itemFamilyId = itemEntity.getItemFamilyId();
+                String itemFamilyId = itemEntity.getProductFamilyId();
                 switch (itemFamilyId) {
                     case "Premium" -> {
                         try {
@@ -196,12 +214,6 @@ public class PricingPageController {
         if (delightSession != null) {
             sessionUrls.put("delight", objectMapper.readValue(delightSession.toJson(), new TypeReference<Map<String, Object>>() {}));
         }
-        // Object premiumPricingPageResponse = generateNewPremiumSubscriptionPricingPage(customerId).getBody();
-        // sessionUrls.put("premium", objectMapper.convertValue(premiumPricingPageResponse, new TypeReference<Map<String, Object>>() {}));
-        // Object signaturePricingPageResponse = generateNewSignatureSubscriptionPricingPage(customerId).getBody();
-        // sessionUrls.put("signature", objectMapper.convertValue(signaturePricingPageResponse, new TypeReference<Map<String, Object>>() {}));
-        // Object delightPricingPageResponse = generateNewDelightSubscriptionPricingPage(customerId).getBody();
-        // sessionUrls.put("delight", objectMapper.convertValue(delightPricingPageResponse, new TypeReference<Map<String, Object>>() {}));
         return ResponseEntity.ok(sessionUrls);
     } catch (Exception e) {
         return ResponseEntity.badRequest().body(e.getMessage());

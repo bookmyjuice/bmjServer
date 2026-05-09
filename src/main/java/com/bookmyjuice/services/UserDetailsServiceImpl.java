@@ -20,14 +20,19 @@ public class UserDetailsServiceImpl implements UserDetailsService {
   public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
     // Try to find user by phone/username first
     var user = userRepository.findByUsername(username);
-    
+
     // If not found, try to find by email
     if (!user.isPresent()) {
       user = userRepository.findByEmail(username);
     }
-    
+
     if (!user.isPresent()) {
       throw new UsernameNotFoundException("User Not Found with username or email: " + username);
+    }
+
+    // Check if user has been soft deleted
+    if (user.get().isDeleted()) {
+      throw new UsernameNotFoundException("User account has been deleted");
     }
 
     return UserDetailsImpl.build(user.get());

@@ -191,7 +191,7 @@ class AuthControllerTest {
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(authentication);
         when(authentication.getPrincipal()).thenReturn(userDetails);
-        when(jwtUtils.generateJwtToken(authentication)).thenReturn("mock-jwt-token-12345");
+        when(jwtUtils.generateJwtToken(authentication, 1)).thenReturn("mock-jwt-token-12345");
 
         // Act
         ResponseEntity<?> response = authController.signin(request);

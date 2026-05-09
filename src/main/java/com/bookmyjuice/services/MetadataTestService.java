@@ -66,7 +66,7 @@ public class MetadataTestService {
         item.setExternalName("Green Detox Premium");
         item.setEnabledInPortal(true);
         item.setEnabledForCheckout(true);
-        item.setItemFamilyId("juice_family");
+        item.setProductFamilyId("juice_family");
         item.setUnit("ml");
         item.setArchived(false);
 

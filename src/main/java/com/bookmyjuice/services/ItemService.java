@@ -59,7 +59,7 @@ public class ItemService {
                 entity.setExternalName(item.externalName());
                 entity.setEnabledInPortal(item.enabledInPortal());
                 entity.setEnabledForCheckout(item.enabledForCheckout());
-                entity.setItemFamilyId(item.itemFamilyId());
+                entity.setProductFamilyId(item.itemFamilyId());
                 entity.setUnit(item.unit());
 
                 // Handle metadata from Chargebee
@@ -150,7 +150,7 @@ public class ItemService {
                     entity.setExternalName(item.externalName());
                     entity.setEnabledInPortal(item.enabledInPortal());
                     entity.setEnabledForCheckout(item.enabledForCheckout());
-                    entity.setItemFamilyId(item.itemFamilyId());
+                    entity.setProductFamilyId(item.itemFamilyId());
                     entity.setUnit(item.unit());
 
                     // Handle metadata from Chargebee
@@ -297,8 +297,8 @@ public class ItemService {
     // {
     // return true;
     // }
-    // if (item.getItemFamilyId() != null &&
-    // item.getItemFamilyId().toLowerCase().contains("juice")) {
+    // if (item.getProductFamilyId() != null &&
+    // item.getProductFamilyId().toLowerCase().contains("juice")) {
     // return true;
     // }
     // // Check if metadata contains juice-related information
@@ -325,7 +325,7 @@ public class ItemService {
         juiceMap.put("type", item.getType());
         juiceMap.put("status", item.getStatus());
         juiceMap.put("unit", item.getUnit());
-        juiceMap.put("itemFamilyId", item.getItemFamilyId());
+        juiceMap.put("itemFamilyId", item.getProductFamilyId());
 
         // Add basic fields always available
         juiceMap.put("enabledInPortal", item.isEnabledInPortal());
@@ -482,7 +482,7 @@ public class ItemService {
         entity.setStatus("active");
         entity.setEnabledInPortal(true);
         entity.setEnabledForCheckout(true);
-        entity.setItemFamilyId("juice_family");
+        entity.setProductFamilyId("juice_family");
         entity.setUnit("ml");
         entity.setArchived(false);
 
@@ -689,7 +689,7 @@ public class ItemService {
         itemMap.put("isShippable", item.isShippable());
         itemMap.put("deleted", item.isDeleted());
         itemMap.put("unit", item.getUnit());
-        itemMap.put("itemFamilyId", item.getItemFamilyId());
+        itemMap.put("itemFamilyId", item.getProductFamilyId());
         itemMap.put("applicableItems", new ArrayList<>()); // Database doesn't store this
         itemMap.put("jsonObject", item.getJsonObject());
 
@@ -1188,7 +1188,7 @@ public class ItemService {
                 .itemId(entity.getId())
                 .name(entity.getName())
                 .description(entity.getDescription())
-                .itemFamilyId(entity.getItemFamilyId())
+                .itemFamilyId(entity.getProductFamilyId())
                 .status(entity.getStatus())
                 .enabledInPortal(entity.isEnabledInPortal())
                 .enabledForCheckout(entity.isEnabledForCheckout())

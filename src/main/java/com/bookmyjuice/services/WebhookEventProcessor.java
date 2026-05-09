@@ -13,7 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.chargebee.models.Event;
 
 /**
- * Service to handle webhook events and ensure all related entities are updated properly.
+ * Service to handle webhook events and ensure all related entities are updated
+ * properly.
  * This service manages the cascading updates between parent and child entities.
  */
 @Service
@@ -45,6 +46,9 @@ public class WebhookEventProcessor {
     @Autowired
     private OrderService orderService;
 
+    @Autowired
+    private com.bookmyjuice.repository.UserRepository userRepository;
+
     // Store processing results to track what was updated
     private final Map<String, Object> processingResults = new HashMap<>();
 
@@ -53,24 +57,24 @@ public class WebhookEventProcessor {
      */
     @Transactional
     public ResponseEntity<String> processCustomerEvent(Event event) {
-        logger.info("Processing customer event: {} for customer: {}", 
-                   event.eventType(), event.content().customer().id());
-        
+        logger.info("Processing customer event: {} for customer: {}",
+                event.eventType(), event.content().customer().id());
+
         processingResults.clear();
         ResponseEntity<String> result;
 
         try {
             // Process the main customer event
             switch (event.eventType()) {
-                case CUSTOMER_CREATED -> result = customerService.saveCustomer(event) ? 
-                    ResponseEntity.ok("Customer created successfully") : 
-                    ResponseEntity.ok("Customer already exists");
-                case CUSTOMER_CHANGED -> result = customerService.updateCustomer(event) ? 
-                    ResponseEntity.ok("Customer updated successfully") : 
-                    ResponseEntity.badRequest().body("Customer update failed");
-                case CUSTOMER_DELETED -> result = customerService.deleteCustomer(event) ? 
-                    ResponseEntity.ok("Customer deleted successfully") : 
-                    ResponseEntity.badRequest().body("Customer deletion failed");
+                case CUSTOMER_CREATED ->
+                    result = customerService.saveCustomer(event) ? ResponseEntity.ok("Customer created successfully")
+                            : ResponseEntity.ok("Customer already exists");
+                case CUSTOMER_CHANGED ->
+                    result = customerService.updateCustomer(event) ? ResponseEntity.ok("Customer updated successfully")
+                            : ResponseEntity.badRequest().body("Customer update failed");
+                case CUSTOMER_DELETED ->
+                    result = customerService.deleteCustomer(event) ? ResponseEntity.ok("Customer deleted successfully")
+                            : ResponseEntity.badRequest().body("Customer deletion failed");
                 default -> {
                     logger.warn("Unhandled customer event type: {}", event.eventType());
                     return ResponseEntity.badRequest().body("Unhandled customer event type: " + event.eventType());
@@ -95,9 +99,9 @@ public class WebhookEventProcessor {
      */
     @Transactional
     public ResponseEntity<String> processSubscriptionEvent(Event event) {
-        logger.info("Processing subscription event: {} for subscription: {}", 
-                   event.eventType(), event.content().subscription().id());
-        
+        logger.info("Processing subscription event: {} for subscription: {}",
+                event.eventType(), event.content().subscription().id());
+
         processingResults.clear();
         ResponseEntity<String> result;
 
@@ -109,24 +113,30 @@ public class WebhookEventProcessor {
             }
 
             // Process the main subscription event
-            switch (event.eventType()) {
-                case SUBSCRIPTION_CREATED -> result = subscriptionService.saveSubscriptions(event) ? 
-                    ResponseEntity.ok("Subscription created successfully") : 
-                    ResponseEntity.ok("Subscription already exists");
-                case SUBSCRIPTION_CHANGED, SUBSCRIPTION_PAUSED, SUBSCRIPTION_CANCELLED -> 
-                    result = subscriptionService.updateSubscription(event) ? 
-                    ResponseEntity.ok("Subscription updated successfully") : 
-                    ResponseEntity.badRequest().body("Subscription update failed");
-                case SUBSCRIPTION_REACTIVATED -> result = subscriptionService.reactivateSubscription(event) ? 
-                    ResponseEntity.ok("Subscription reactivated successfully") : 
-                    ResponseEntity.badRequest().body("Subscription reactivation failed");
-                case SUBSCRIPTION_RENEWED -> result = subscriptionService.renewSubscription(event) ? 
-                    ResponseEntity.ok("Subscription renewed successfully") : 
-                    ResponseEntity.badRequest().body("Subscription renewal failed");
+            String eventType = event.eventType().name();
+            switch (eventType) {
+                case "subscription_created" -> result = subscriptionService.saveSubscriptions(event)
+                        ? ResponseEntity.ok("Subscription created successfully")
+                        : ResponseEntity.ok("Subscription already exists");
+                case "subscription_changed", "subscription_paused", "subscription_cancelled", "subscription_updated" ->
+                    result = subscriptionService.updateSubscription(event)
+                            ? ResponseEntity.ok("Subscription updated successfully")
+                            : ResponseEntity.badRequest().body("Subscription update failed");
+                case "subscription_reactivated" -> result = subscriptionService.reactivateSubscription(event)
+                        ? ResponseEntity.ok("Subscription reactivated successfully")
+                        : ResponseEntity.badRequest().body("Subscription reactivation failed");
+                case "subscription_renewed" -> result = subscriptionService.renewSubscription(event)
+                        ? ResponseEntity.ok("Subscription renewed successfully")
+                        : ResponseEntity.badRequest().body("Subscription renewal failed");
                 default -> {
                     logger.warn("Unhandled subscription event type: {}", event.eventType());
                     return ResponseEntity.badRequest().body("Unhandled subscription event type: " + event.eventType());
                 }
+            }
+
+            // Send push notifications for subscription actions
+            if (result.getStatusCode().is2xxSuccessful()) {
+                sendSubscriptionActionNotification(event);
             }
 
             // Process related entities if subscription operation was successful
@@ -147,9 +157,9 @@ public class WebhookEventProcessor {
      */
     @Transactional
     public ResponseEntity<?> processItemEvent(Event event) {
-        logger.info("Processing item event: {} for item: {}", 
-                   event.eventType(), event.content().item().id());
-        
+        logger.info("Processing item event: {} for item: {}",
+                event.eventType(), event.content().item().id());
+
         processingResults.clear();
         ResponseEntity<?> result;
 
@@ -185,15 +195,15 @@ public class WebhookEventProcessor {
      */
     @Transactional
     public ResponseEntity<?> processItemPriceEvent(Event event) {
-        logger.info("Processing item-price event: {} for item-price: {}", 
-                   event.eventType(), event.content().itemPrice().id());
-        
+        logger.info("Processing item-price event: {} for item-price: {}",
+                event.eventType(), event.content().itemPrice().id());
+
         processingResults.clear();
         ResponseEntity<?> result;
 
         try {
             var itemPrice = event.content().itemPrice();
-            
+
             // Process the main item price event
             String eventType = event.eventType().name();
             switch (eventType) {
@@ -254,31 +264,31 @@ public class WebhookEventProcessor {
 
     private void processRelatedEntitiesForItemPrice(Event event) {
         logger.debug("Processing related entities for item-price: {}", event.content().itemPrice().id());
-        
+
         var itemPrice = event.content().itemPrice();
-        
+
         // Ensure parent Item exists and is properly linked
         if (itemPrice.itemId() != null) {
-            logger.debug("Verifying parent Item {} exists for ItemPrice {}", 
-                        itemPrice.itemId(), itemPrice.id());
+            logger.debug("Verifying parent Item {} exists for ItemPrice {}",
+                    itemPrice.itemId(), itemPrice.id());
             processingResults.put("parent_item_verified", true);
         }
-        
+
         // ItemPrice events may include Item data
         if (event.content().item() != null) {
-            logger.info("Processing nested Item {} for ItemPrice {}", 
-                       event.content().item().id(), itemPrice.id());
-            
+            logger.info("Processing nested Item {} for ItemPrice {}",
+                    event.content().item().id(), itemPrice.id());
+
             // Save or update the nested item
             ResponseEntity<?> itemResult = itemService.saveItem(event);
             processingResults.put("nested_item_processed", itemResult.getStatusCode().is2xxSuccessful());
-            
+
             if (itemResult.getStatusCode().is2xxSuccessful()) {
-                logger.info("Successfully processed nested Item {} for ItemPrice {}", 
-                           event.content().item().id(), itemPrice.id());
+                logger.info("Successfully processed nested Item {} for ItemPrice {}",
+                        event.content().item().id(), itemPrice.id());
             } else {
-                logger.error("Failed to process nested Item {} for ItemPrice {}", 
-                            event.content().item().id(), itemPrice.id());
+                logger.error("Failed to process nested Item {} for ItemPrice {}",
+                        event.content().item().id(), itemPrice.id());
             }
         }
     }
@@ -288,9 +298,9 @@ public class WebhookEventProcessor {
      */
     @Transactional
     public ResponseEntity<String> processInvoiceEvent(Event event) {
-        logger.info("Processing invoice event: {} for invoice: {}", 
-                   event.eventType(), event.content().invoice().id());
-        
+        logger.info("Processing invoice event: {} for invoice: {}",
+                event.eventType(), event.content().invoice().id());
+
         processingResults.clear();
 
         try {
@@ -329,9 +339,9 @@ public class WebhookEventProcessor {
      */
     @Transactional
     public ResponseEntity<String> processPaymentEvent(Event event) {
-        logger.info("Processing payment event: {} for payment: {}", 
-                   event.eventType(), event.content().transaction().id());
-        
+        logger.info("Processing payment event: {} for payment: {}",
+                event.eventType(), event.content().transaction().id());
+
         processingResults.clear();
 
         try {
@@ -348,6 +358,11 @@ public class WebhookEventProcessor {
                     paymentService.saveOrUpdatePayment(event);
                     processRelatedEntitiesForPayment(event);
                     return ResponseEntity.ok("Payment event processed");
+                }
+                case "PAYMENT_FAILED" -> {
+                    paymentService.saveOrUpdatePayment(event);
+                    processRelatedEntitiesForPayment(event);
+                    return ResponseEntity.ok("Payment failed event processed");
                 }
                 case "PAYMENT_DELETED" -> {
                     paymentService.deletePayment(event);
@@ -379,7 +394,7 @@ public class WebhookEventProcessor {
 
     private void processRelatedEntitiesForSubscription(Event event) {
         logger.debug("Processing related entities for subscription: {}", event.content().subscription().id());
-        
+
         // Update subscription items if present
         if (event.content().subscription().subscriptionItems() != null) {
             // Handle subscription items updates
@@ -388,46 +403,46 @@ public class WebhookEventProcessor {
 
         // Update attached items if present (addons, coupons, discounts)
         if (event.content().subscription().addons() != null) {
-            // Handle addons updates  
+            // Handle addons updates
             processingResults.put("addons_updated", true);
         }
-        
+
         if (event.content().subscription().coupons() != null) {
-            // Handle coupons updates  
+            // Handle coupons updates
             processingResults.put("coupons_updated", true);
         }
-        
+
         if (event.content().subscription().discounts() != null) {
-            // Handle discounts updates  
+            // Handle discounts updates
             processingResults.put("discounts_updated", true);
         }
     }
 
     private void processRelatedEntitiesForItem(Event event) {
         logger.debug("Processing related entities for item: {}", event.content().item().id());
-        
+
         // Item events may contain nested item prices
         if (event.content().itemPrice() != null) {
-            logger.info("Processing nested ItemPrice {} for Item {}", 
-                       event.content().itemPrice().id(), event.content().item().id());
-            
+            logger.info("Processing nested ItemPrice {} for Item {}",
+                    event.content().itemPrice().id(), event.content().item().id());
+
             // Use the saveOrUpdateItemPrice method to handle both create and update cases
             boolean success = itemPriceService.saveOrUpdateItemPrice(event);
             processingResults.put("item_price_processed", success);
-            
+
             if (success) {
-                logger.info("Successfully processed nested ItemPrice {} for Item {}", 
-                           event.content().itemPrice().id(), event.content().item().id());
+                logger.info("Successfully processed nested ItemPrice {} for Item {}",
+                        event.content().itemPrice().id(), event.content().item().id());
             } else {
-                logger.error("Failed to process nested ItemPrice {} for Item {}", 
-                            event.content().itemPrice().id(), event.content().item().id());
+                logger.error("Failed to process nested ItemPrice {} for Item {}",
+                        event.content().itemPrice().id(), event.content().item().id());
             }
         }
     }
 
     private void processRelatedEntitiesForInvoice(Event event) {
         logger.debug("Processing related entities for invoice: {}", event.content().invoice().id());
-        
+
         // Invoice events may include subscription updates
         if (event.content().subscription() != null) {
             subscriptionService.updateSubscription(event);
@@ -443,7 +458,7 @@ public class WebhookEventProcessor {
 
     private void processRelatedEntitiesForPayment(Event event) {
         logger.debug("Processing related entities for payment: {}", event.content().transaction().id());
-        
+
         // Payment events may include invoice updates
         if (event.content().invoice() != null) {
             invoiceService.saveOrUpdateInvoice(event);

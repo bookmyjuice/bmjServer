@@ -12,6 +12,8 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.bookmyjuice.models.User;
+import com.bookmyjuice.repository.UserRepository;
 import com.bookmyjuice.services.UserDetailsServiceImpl;
 
 import jakarta.servlet.FilterChain;
@@ -26,6 +28,9 @@ public class AuthTokenFilter extends OncePerRequestFilter {
   @Autowired
   private UserDetailsServiceImpl userDetailsService;
 
+  @Autowired
+  private UserRepository userRepository;
+
   private static final Logger logger = LoggerFactory.getLogger(AuthTokenFilter.class);
 
   @Override
@@ -37,11 +42,29 @@ public class AuthTokenFilter extends OncePerRequestFilter {
         String username = jwtUtils.getUserNameFromJwtToken(jwt);
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-        UsernamePasswordAuthenticationToken authentication =
-            new UsernamePasswordAuthenticationToken(
-                userDetails,
-                null,
-                userDetails.getAuthorities());
+
+        // #7 Token version validation: Check if token version matches user's current
+        // version
+        int tokenVersion = jwtUtils.getTokenVersionFromJwtToken(jwt);
+        java.util.Optional<User> userOpt = userRepository.findByUsername(username);
+        if (!userOpt.isPresent()) {
+          userOpt = userRepository.findByEmail(username);
+        }
+        if (userOpt.isPresent()) {
+          User user = userOpt.get();
+          if (tokenVersion != user.getTokenVersion()) {
+            logger.warn("Token version mismatch for user {}: token={}, current={}",
+                username, tokenVersion, user.getTokenVersion());
+            // Don't set authentication - token is invalidated
+            filterChain.doFilter(request, response);
+            return;
+          }
+        }
+
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+            userDetails,
+            null,
+            userDetails.getAuthorities());
         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
         SecurityContextHolder.getContext().setAuthentication(authentication);

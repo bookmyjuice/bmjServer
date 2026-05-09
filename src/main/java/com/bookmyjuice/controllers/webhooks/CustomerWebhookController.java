@@ -33,18 +33,42 @@ public class CustomerWebhookController {
     public ResponseEntity<String> handleCustomerWebhook(@RequestBody Map<String, Object> e) {
         try {
             Event event = Event.retrieve(e.get("id").toString()).request().event();
+            String eventId = event.id();
+            String eventType = event.eventType().name();
 
-            // Idempotency check
-            if (idempotencyService.checkAndMarkEvent(event.id())) {
-                return ResponseEntity.status(200).body("Event already processed");
+            // Start processing with database-level locking
+            if (!idempotencyService.startEventProcessing(eventId, eventType)) {
+                if (idempotencyService.isEventProcessed(eventId)) {
+                    return ResponseEntity.status(200).body("Event already processed");
+                } else {
+                    return ResponseEntity.status(409).body("Event is currently being processed");
+                }
             }
 
-            // Use the WebhookEventProcessor for comprehensive handling
-            return webhookEventProcessor.processCustomerEvent(event);
-            
+            try {
+                // Use the WebhookEventProcessor for comprehensive handling
+                ResponseEntity<String> result = webhookEventProcessor.processCustomerEvent(event);
+
+                // Mark as completed if successful
+                if (result.getStatusCode().is2xxSuccessful()) {
+                    idempotencyService.markEventCompleted(eventId);
+                } else {
+                    idempotencyService.markEventFailed(eventId,
+                            "Processing failed with status: " + result.getStatusCode());
+                }
+
+                return result;
+
+            } catch (Exception processingEx) {
+                logger.error("Error processing customer webhook: {}", processingEx.getMessage(), processingEx);
+                idempotencyService.markEventFailed(eventId, processingEx.getMessage());
+                return ResponseEntity.status(500)
+                        .body("Error processing customer webhook: " + processingEx.getMessage());
+            }
+
         } catch (Exception ex) {
-            logger.error("Error processing customer webhook: {}", ex.getMessage(), ex);
-            return ResponseEntity.status(500).body("Error processing customer webhook: " + ex.getMessage());
+            logger.error("Error retrieving customer webhook event: {}", ex.getMessage(), ex);
+            return ResponseEntity.status(500).body("Error retrieving customer webhook event: " + ex.getMessage());
         }
     }
 }
