@@ -2,6 +2,7 @@ package com.bookmyjuice.services;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -33,6 +34,9 @@ public class IdempotencyService {
     @Autowired
     private WebhookEventRepository webhookEventRepo;
 
+    // In-memory cache for tracking processed events (for fast lookup)
+    private final ConcurrentHashMap<String, Boolean> processedEvents = new ConcurrentHashMap<>();
+
     // Cleanup scheduler
     private ScheduledExecutorService scheduler;
 
@@ -61,6 +65,9 @@ public class IdempotencyService {
      * @return true if the event has been processed, false otherwise
      */
     public boolean isEventProcessed(String eventId) {
+        if (processedEvents.containsKey(eventId)) {
+            return processedEvents.get(eventId);
+        }
         return webhookEventRepo.isEventCompleted(eventId);
     }
 
@@ -121,6 +128,7 @@ public class IdempotencyService {
     public void markEventCompleted(String eventId) {
         int updated = webhookEventRepo.markEventCompleted(eventId, LocalDateTime.now());
         if (updated > 0) {
+            processedEvents.put(eventId, true);
             logger.debug("Event marked as completed: {}", eventId);
         } else {
             logger.warn("Failed to mark event as completed: {}", eventId);
@@ -137,6 +145,7 @@ public class IdempotencyService {
     public void markEventFailed(String eventId, String error) {
         int updated = webhookEventRepo.markEventFailed(eventId, error, LocalDateTime.now());
         if (updated > 0) {
+            processedEvents.put(eventId, false);
             logger.debug("Event marked as failed: {} - {}", eventId, error);
         } else {
             logger.warn("Failed to mark event as failed: {}", eventId);
@@ -204,6 +213,8 @@ public class IdempotencyService {
         if (removedCount > 0) {
             logger.info("Cleaned up {} old webhook events", removedCount);
         }
+
+        logger.debug("IdempotencyService cache size: {}", processedEvents.size());
     }
 
     /**
@@ -218,27 +229,6 @@ public class IdempotencyService {
 
         return new ProcessingStats(processing.size(), failed.size(), completed.size());
     }
-
-    /**
-     * Statistics class for webhook processing
-     */
-    public static class ProcessingStats {
-        public final int processing;
-        public final int failed;
-        public final int completed;
-
-        public ProcessingStats(int processing, int failed, int completed) {
-            this.processing = processing;
-            this.failed = failed;
-            this.completed = completed;
-        }
-    }
-
-}
-
-    if(removedCount>0){logger.info("Cleaned up {} expired event records",removedCount);}
-
-    logger.debug("IdempotencyService cache size: {}",processedEvents.size());}
 
     /**
      * Get the current number of tracked events
@@ -256,4 +246,20 @@ public class IdempotencyService {
         processedEvents.clear();
         logger.warn("All tracked events cleared");
     }
+
+    /**
+     * Statistics class for webhook processing
+     */
+    public static class ProcessingStats {
+        public final int processing;
+        public final int failed;
+        public final int completed;
+
+        public ProcessingStats(int processing, int failed, int completed) {
+            this.processing = processing;
+            this.failed = failed;
+            this.completed = completed;
+        }
+    }
+
 }

@@ -52,6 +52,11 @@ public class CheckoutController {
     @PostMapping("/cartCheckout")
     @PreAuthorize("hasRole('USER') or hasRole('MODERATOR') or hasRole('ADMIN')")
     public ResponseEntity<?> cartCheckout(@RequestBody List<Map<String, Object>> cartItems) {
+        // Validate: empty cart should not proceed to Chargebee
+        if (cartItems == null || cartItems.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Error: Cart is empty. Add items before checkout.");
+        }
         try {
             HostedPage.CheckoutOneTimeForItemsRequest req = HostedPage.checkoutOneTimeForItems()
                     .customerId(getUserIdFromSecurityContext());

@@ -259,32 +259,6 @@ public class SubscriptionController {
     }
 
     /**
-     * Get pricing page for customer
-     */
-    @GetMapping("/pricing-page")
-    @PreAuthorize("hasRole('USER') or hasRole('MODERATOR') or hasRole('ADMIN')")
-    public ResponseEntity<?> getPricingPage() {
-        try {
-            String customerId = getCustomerIdFromSecurityContext();
-            if (customerId == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "User not authenticated"));
-            }
-
-            String pricingPageUrl = subscriptionApiService.getPricingPageUrl(customerId);
-
-            return ResponseEntity.ok(Map.of(
-                    "status", "success",
-                    "message", "Pricing page retrieved",
-                    "url", pricingPageUrl));
-        } catch (Exception e) {
-            logger.error("Error getting pricing page: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    /**
      * Helper method to map subscription entity to response DTO
      */
     private Map<String, Object> mapSubscriptionToResponse(SubscriptionEntity subscription) {

@@ -134,12 +134,9 @@ public class WebhookEventProcessor {
                 }
             }
 
-            // Send push notifications for subscription actions
-            if (result.getStatusCode().is2xxSuccessful()) {
-                sendSubscriptionActionNotification(event);
-            }
-
+            // Notifications excluded per scope — push notifications are not implemented
             // Process related entities if subscription operation was successful
+
             if (result.getStatusCode().is2xxSuccessful()) {
                 processRelatedEntitiesForSubscription(event);
             }

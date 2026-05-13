@@ -1,0 +1,42 @@
+2026-05-10 17:48:09.848 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:48:14.017 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:48:16.089 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:48:18.213 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:48:19.739 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:48:21.745 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:48:23.868 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:48:25.840 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:48:27.565 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:48:29.146 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:48:53.215 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:50:33.459 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:50:37.187 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:50:39.224 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:50:40.847 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:50:42.887 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:50:44.591 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:50:46.352 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:50:48.010 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:50:49.690 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:50:51.287 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 17:51:10.463 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 18:10:59.509 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 18:11:09.332 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-05-10 18:11:09.807 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Bad credentials
+2026-05-10 18:11:28.447 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 18:16:08.290 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 18:16:17.899 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-05-10 18:16:18.401 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Bad credentials
+2026-05-10 18:16:37.723 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 19:42:01.601 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 19:42:10.785 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-05-10 19:42:11.286 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Bad credentials
+2026-05-10 19:42:30.474 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 19:49:48.401 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 19:49:57.837 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-05-10 19:49:58.259 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Bad credentials
+2026-05-10 19:50:16.575 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 21:04:26.198 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3
+2026-05-10 21:04:32.368 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-05-10 21:04:32.733 [main] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Bad credentials
+2026-05-10 21:04:47.258 [main] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 3

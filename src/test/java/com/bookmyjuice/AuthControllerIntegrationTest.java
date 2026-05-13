@@ -20,7 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * - Missing bean dependencies
  * - Security configuration issues
  */
-@SpringBootTest
+@SpringBootTest(properties = "spring.profiles.active=test")
 @AutoConfigureMockMvc
 class AuthControllerIntegrationTest {
 
@@ -126,11 +126,11 @@ class AuthControllerIntegrationTest {
     }
 
     /**
-     * TC-AUTH-INT-010: Verify health endpoint exists (requires auth)
+     * TC-AUTH-INT-010: Verify health endpoint exists and returns 200 OK
      */
     @Test
     void testHealthEndpoint() throws Exception {
         mockMvc.perform(get("/api/health"))
-                .andExpect(status().is4xxClientError()); // 401/403 expected (auth required)
+                .andExpect(status().is2xxSuccessful()); // 200 expected (public endpoint)
     }
 }

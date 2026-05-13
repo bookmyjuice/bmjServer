@@ -44,7 +44,11 @@ public class RateLimiterService {
      * @return true if request is allowed, false if rate limited
      */
     public boolean isAllowed(String ipAddress) {
+        if (ipAddress == null) {
+            return true; // null key not rate-limited
+        }
         Bucket bucket = buckets.computeIfAbsent(ipAddress, k -> {
+
             Bandwidth limit = Bandwidth.classic(10, Refill.intervally(10, Duration.ofMinutes(5)));
             return Bucket4j.builder()
                     .addLimit(limit)

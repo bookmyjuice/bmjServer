@@ -14,7 +14,7 @@ public interface ItemRepository extends JpaRepository<ItemEntity, String> {
     List<ItemEntity> findBySubscription(@Param("subscriptionId") String subscriptionId);
     
     @Query("SELECT i FROM ItemEntity i WHERE i.type = 'CHARGE' AND i.status = 'ACTIVE' AND i.archived = false AND " +
-           "(LOWER(i.name) LIKE %:searchTerm% OR LOWER(i.itemFamilyId) LIKE %:searchTerm%)")
+           "(LOWER(i.name) LIKE %:searchTerm% OR LOWER(i.productFamilyId) LIKE %:searchTerm%)")
     List<ItemEntity> findJuiceItems(@Param("searchTerm") String searchTerm);
     
     @Query("SELECT i FROM ItemEntity i WHERE i.type = 'CHARGE' AND i.status = 'ACTIVE' AND i.archived = false")

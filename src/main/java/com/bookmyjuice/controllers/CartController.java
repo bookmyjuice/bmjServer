@@ -161,9 +161,11 @@ public class CartController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to clear cart: " + e.getMessage()));
         }
+    }
 
     /**
      * POST /api/v1/cart/merge - Merge guest cart into authenticated cart
+
      * Handles conflicts when cart types differ with explicit user choice
      */
     @PostMapping("/merge")

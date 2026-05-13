@@ -542,6 +542,8 @@ public class ChargebeeSyncService {
      * Cleanup method to shutdown executor service
      */
     public void shutdown() {
-        executorService.shutdown();
+        if (executorService != null) {
+            executorService.shutdown();
+        }
     }
 }

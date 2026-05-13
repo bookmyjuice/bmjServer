@@ -1,20 +1,16 @@
 package com.bookmyjuice.controllers;
 
+import java.util.Map;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-
-import com.bookmyjuice.services.UserDetailsImpl;
-import com.chargebee.Result;
-import com.chargebee.models.PortalSession;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
- * DEPRECATED: Generates Chargebee Portal Session URLs for self-service
- * subscription management.
+ * DEPRECATED — Returned 410 Gone.
  * 
  * Per enterprise architecture decision (ARCHITECTURE_OVERVIEW.md v3.0):
  * - All subscription management must use NATIVE BMJ screens (Flutter),
@@ -24,38 +20,27 @@ import com.chargebee.models.PortalSession;
  * Replacement: Use SubscriptionController for native subscription management.
  * 
  * @deprecated Use native BMJ subscription management endpoints instead.
- *     Scheduled for removal in next major release.
  *     See docs/NATIVE_BILLING_FLOW.md for the replacement architecture.
+ *     Scheduled for removal in next major release.
  */
 @Deprecated(since = "2026-05-08", forRemoval = true)
-@Controller
+@RestController
 @RequestMapping("api/test")
 public class SelfServePageController {
 
+    private static final String GONE_MESSAGE =
+        "Chargebee Portal (Self-Serve Page) is no longer supported. " +
+        "Use native BMJ subscription management endpoints instead. " +
+        "See SubscriptionController and docs/NATIVE_BILLING_FLOW.md for the replacement architecture.";
+
     @GetMapping("/portal")
     @PreAuthorize("hasRole('USER') or hasRole('MODERATOR') or hasRole('ADMIN')")
-    public ResponseEntity<?> postMethodName() {
-        try {
-            Result result = PortalSession.create()
-                    
-                    .customerId(getUserIdFromSecurityContext())
-                    .request();
-            PortalSession portalSession = result.portalSession();
-            // System.err.println(portalSession.toString());
-            return ResponseEntity.ok(portalSession.toJson());
-   } catch (Exception e) {
-            return ResponseEntity.ok(e.getMessage());
-        }
+    public ResponseEntity<?> portal() {
+        return ResponseEntity.status(HttpStatus.GONE)
+            .body(Map.of(
+                "error", "portal_deprecated",
+                "message", GONE_MESSAGE,
+                "documentation", "docs/NATIVE_BILLING_FLOW.md"
+            ));
     }
-
-
-    public String getUserIdFromSecurityContext() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof UserDetailsImpl) {
-            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-            return userDetails.getId().toString();
-        }
-        return null; // Or throw an exception
-    }
-
 }

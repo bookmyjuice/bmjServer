@@ -29,9 +29,12 @@ EXPOSE 5005
 HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8080/api/health || exit 1
 
-# Run with Spring Boot devtools for hot-reload and debug enabled
-ENTRYPOINT ["./mvnw"]
-CMD ["spring-boot:run", "-Dspring-boot.run.jvmArguments='-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 -Xdebug -Dspring-boot.run.addResources=true'"]
+# Run with Spring Boot devtools for hot-reload and debug enabled.
+# CMD is overridable by docker-compose command:. Do NOT use ENTRYPOINT
+# so docker-compose can inject its own command cleanly.
+# Use mvn directly (maven:3.9 base image has it in PATH);
+# ./mvnw is not copied into the image and has permission issues on Windows.
+CMD ["mvn", "spring-boot:run", "-Dspring-boot.run.jvmArguments=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 -Xdebug -Dspring-boot.run.addResources=true"]
 
 # ============================================================
 # Development Usage:
