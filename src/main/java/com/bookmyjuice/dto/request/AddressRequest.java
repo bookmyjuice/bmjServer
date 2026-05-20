@@ -1,4 +1,4 @@
-﻿package com.bookmyjuice.dto.request;
+package com.bookmyjuice.dto.request;
 
 import java.math.BigDecimal;
 

@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -79,8 +80,6 @@ public class AuthController {
     @Autowired
     JwtUtils jwtUtils;
 
-    @Value("${google.client.id}")
-
     @GetMapping("/autologin")
     public ResponseEntity<?> autoLogin(@RequestHeader(value = "Authorization", required = false) String authorization) {
         // headers.get("Authorization");`````````````
@@ -91,7 +90,8 @@ public class AuthController {
             return ResponseEntity.badRequest().body(new MessageResponse("Error: Authorization header is invalid!"));
         }
         String jwt = authorization.substring(7);
-        if (jwt == null || !jwtUtils.validateJwtToken(jwt)) {
+        // BUG FIX: Empty string is not null, check explicitly
+        if (jwt == null || jwt.isEmpty() || !jwtUtils.validateJwtToken(jwt)) {
             return ResponseEntity.badRequest().body(new MessageResponse("Error: Invalid JWT token!"));
         } else if (jwtUtils.getUserNameFromJwtToken(jwt) == null) {
             return ResponseEntity.badRequest().body(new MessageResponse("Error: JWT token is expired!"));
@@ -111,33 +111,41 @@ public class AuthController {
      */
     @PostMapping("/signin")
     public ResponseEntity<?> signin(@Valid @RequestBody LoginRequest loginRequest) {
-        // Try to authenticate user (works with both phone and email as username)
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginRequest.getUsername(),
-                        loginRequest.getPassword()));
+        try {
+            // Try to authenticate user (works with both phone and email as username)
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequest.getUsername(),
+                            loginRequest.getPassword()));
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
+            SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        // Get user's token version for JWT invalidation support
-        User user = userRepository.findByUsername(loginRequest.getUsername()).orElse(null);
-        if (user == null) {
-            user = userRepository.findByEmail(loginRequest.getUsername()).orElse(null);
+            // Get user's token version for JWT invalidation support
+            User user = userRepository.findByUsername(loginRequest.getUsername()).orElse(null);
+            if (user == null) {
+                user = userRepository.findByEmail(loginRequest.getUsername()).orElse(null);
+            }
+            int tokenVersion = (user != null) ? user.getTokenVersion() : 1;
+
+            String jwt = jwtUtils.generateJwtToken(authentication, tokenVersion);
+
+            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+            List<String> roles = userDetails.getAuthorities().stream()
+                    .map(item -> item.getAuthority())
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(new JwtResponse(jwt,
+                    userDetails.getId(),
+                    userDetails.getUsername(),
+                    userDetails.getEmail(),
+                    roles));
+        } catch (BadCredentialsException e) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: Invalid username or password!"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: Authentication failed - " + e.getMessage()));
         }
-        int tokenVersion = (user != null) ? user.getTokenVersion() : 1;
-
-        String jwt = jwtUtils.generateJwtToken(authentication, tokenVersion);
-
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(item -> item.getAuthority())
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(new JwtResponse(jwt,
-                userDetails.getId(),
-                userDetails.getUsername(),
-                userDetails.getEmail(),
-                roles));
     }
 
     /**
@@ -486,21 +494,14 @@ public class AuthController {
         return null;
     }
 
-    // private Long getUserIdFromSecurityContext() {
-    // Authentication authentication =
-    // SecurityContextHolder.getContext().getAuthentication();
-    // if (authentication != null && authentication.getPrincipal() instanceof
-    // UserDetailsImpl) {
-    // UserDetailsImpl userDetails = (UserDetailsImpl)
-    // authentication.getPrincipal();
-    // return userDetails.getId();
-    // }
-    // return null; // Or throw an exception
-    // }
-
     @PostMapping("/send-otp")
     public ResponseEntity<?> sendOTP(@Valid @RequestBody SendOTPRequest request) {
         try {
+            // BUG FIX: Check rate limiting before generating OTP
+            if (!otpUtil.canSendOTP(request.getPhone())) {
+                return ResponseEntity.badRequest()
+                        .body(new MessageResponse("Error: Too many OTP requests. Please wait before requesting a new OTP."));
+            }
             String otp = otpUtil.generateOTP(request.getPhone());
             return ResponseEntity.ok(new MessageResponse("Success: OTP sent! Check console for OTP (Dev mode)"));
         } catch (Exception e) {
@@ -569,6 +570,12 @@ public class AuthController {
      */
     @PostMapping("/unified-signup")
     public ResponseEntity<?> unifiedSignup(@Valid @RequestBody UnifiedSignupRequest request) {
+        // BUG FIX: Validate password complexity (was missing in unified-signup)
+        String pwValidation = validatePassword(request.getPassword());
+        if (pwValidation != null) {
+            return ResponseEntity.badRequest().body(new MessageResponse(pwValidation));
+        }
+
         // Validate email not already registered
         if (userRepository.existsByEmail(request.getEmail())) {
             return ResponseEntity
@@ -583,8 +590,8 @@ public class AuthController {
                     .body(new MessageResponse("Error: Phone number is already registered!"));
         }
 
-        // Use email as username for email-based auth
-        String username = request.getEmail().toLowerCase().trim();
+        // Use phone as username (10-digit phone number)
+        String username = request.getPhone().trim();
 
         // Create new user with BCrypt hashed password
         User user = new User(
@@ -614,8 +621,7 @@ public class AuthController {
 
         // Create Chargebee customer
         try {
-            Customer.create()
-                    .id(user.getId().toString())
+            com.chargebee.Result chargebeeResult = Customer.create()
                     .email(user.getEmail())
                     .firstName(user.getFirstName())
                     .lastName(user.getLastName())
@@ -631,6 +637,10 @@ public class AuthController {
                     .billingAddressCountry(user.getCountry())
                     .preferredCurrencyCode("INR")
                     .request();
+            // Store the Chargebee customer ID back to the user record
+            Customer chargebeeCustomer = chargebeeResult.customer();
+            user.setChargebeeCustomerId(chargebeeCustomer.id());
+            userRepository.save(user);
         } catch (Exception e) {
             // Rollback: delete user if Chargebee creation fails
             userRepository.delete(user);
@@ -648,7 +658,8 @@ public class AuthController {
      * FR-AUTH-001: Email-based user signup (Legacy - keep for backward
      * compatibility)
      * Creates a local user account with BCrypt hashed password and syncs to
-     * Chargebee
+     * Chargebee.
+     * Username is set to the user's 10-digit phone number.
      */
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@Valid @RequestBody EmailSignupRequest request) {
@@ -659,8 +670,8 @@ public class AuthController {
                     .body(new MessageResponse("Error: Email is already registered!"));
         }
 
-        // Use email as username for email-based auth
-        String username = request.getEmail().toLowerCase().trim();
+        // Use phone as username (10-digit phone number)
+        String username = request.getPhone().trim();
 
         // Create new user with BCrypt hashed password
         User user = new User(
@@ -683,14 +694,17 @@ public class AuthController {
 
         // Create Chargebee customer
         try {
-            Customer.create()
-                    .id(user.getId().toString())
+            com.chargebee.Result chargebeeResult = Customer.create()
                     .email(user.getEmail())
                     .firstName(user.getFirstName())
                     .lastName(user.getLastName())
                     .phone(user.getPhone())
                     .preferredCurrencyCode("INR")
                     .request();
+            // Store the Chargebee customer ID back to the user record
+            Customer chargebeeCustomer = chargebeeResult.customer();
+            user.setChargebeeCustomerId(chargebeeCustomer.id());
+            userRepository.save(user);
         } catch (Exception e) {
             // Rollback: delete user if Chargebee creation fails
             userRepository.delete(user);

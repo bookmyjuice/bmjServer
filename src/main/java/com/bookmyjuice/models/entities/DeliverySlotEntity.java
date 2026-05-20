@@ -1,4 +1,4 @@
-﻿package com.bookmyjuice.models.entities;
+package com.bookmyjuice.models.entities;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;

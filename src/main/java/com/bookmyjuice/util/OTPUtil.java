@@ -1,20 +1,62 @@
 package com.bookmyjuice.util;
 
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
  * OTP utility class for generating and verifying OTPs
- * Note: In production, this should be replaced with actual SMS provider integration
+ * BUG FIX: Added rate limiting (max 3 OTP requests per phone number per minute)
  */
 @Component
 public class OTPUtil {
     private static final int OTP_LENGTH = 6;
     private static final long OTP_EXPIRY_MINUTES = 10; // OTP valid for 10 minutes
+    private static final int MAX_OTP_REQUESTS_PER_MINUTE = 3;
+    private static final long RATE_LIMIT_WINDOW_SECONDS = 60;
     private final Map<String, OTPData> otpStore = new HashMap<>();
+    private final Map<String, RateLimitData> rateLimitStore = new HashMap<>();
     private final Random random = new Random();
+
+    @Autowired
+    private SmsService smsService;
+
+    /**
+     * Check if a phone number can send another OTP request (rate limiting).
+     * BUG FIX: Prevents abuse by limiting to MAX_OTP_REQUESTS_PER_MINUTE requests per minute.
+     */
+    public boolean canSendOTP(String phoneNumber) {
+        LocalDateTime now = LocalDateTime.now();
+        RateLimitData rateData = rateLimitStore.get(phoneNumber);
+
+        if (rateData == null) {
+            // First request - allow
+            rateLimitStore.put(phoneNumber, new RateLimitData(1, now));
+            return true;
+        }
+
+        // Check if the time window has expired
+        long secondsSinceFirstRequest = ChronoUnit.SECONDS.between(rateData.windowStart, now);
+        if (secondsSinceFirstRequest > RATE_LIMIT_WINDOW_SECONDS) {
+            // Reset window
+            rateLimitStore.put(phoneNumber, new RateLimitData(1, now));
+            return true;
+        }
+
+        // Check if within rate limit
+        if (rateData.requestCount >= MAX_OTP_REQUESTS_PER_MINUTE) {
+            return false;
+        }
+
+        // Increment counter
+        rateData.requestCount++;
+        return true;
+    }
 
     /**
      * Generate a 6-digit OTP for a phone number
@@ -30,8 +72,13 @@ public class OTPUtil {
         
         otpStore.put(phoneNumber, new OTPData(generatedOTP, expiryTime, false));
         
-        // TODO: In production, send OTP via actual SMS provider
-        System.out.println("⚠️ [DEV] OTP for " + phoneNumber + ": " + generatedOTP);
+        // Send OTP via Fast2SMS in production (falls back to console if API key not configured)
+        boolean smsSent = smsService.sendOtpSms(phoneNumber, generatedOTP);
+        if (smsSent) {
+            System.out.println("✅ [SMS] OTP sent to " + phoneNumber + " via Fast2SMS");
+        } else {
+            System.out.println("⚠️ [DEV] OTP for " + phoneNumber + ": " + generatedOTP + " (SMS not sent - check Fast2SMS config)");
+        }
         
         return generatedOTP;
     }
@@ -72,6 +119,20 @@ public class OTPUtil {
      */
     public void clearOTP(String phoneNumber) {
         otpStore.remove(phoneNumber);
+        rateLimitStore.remove(phoneNumber);
+    }
+
+    /**
+     * Inner class to store rate limit data
+     */
+    private static class RateLimitData {
+        int requestCount;
+        LocalDateTime windowStart;
+
+        RateLimitData(int requestCount, LocalDateTime windowStart) {
+            this.requestCount = requestCount;
+            this.windowStart = windowStart;
+        }
     }
 
     /**

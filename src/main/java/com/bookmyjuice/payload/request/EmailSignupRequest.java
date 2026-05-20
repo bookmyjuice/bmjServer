@@ -25,7 +25,7 @@ public class EmailSignupRequest {
     @Size(max = 50, message = "Last name must not exceed 50 characters")
     private String lastName;
 
-    @Size(max = 20, message = "Phone must not exceed 20 characters")
+    @jakarta.validation.constraints.Pattern(regexp = "^[0-9]{10}$", message = "Phone must be a valid 10-digit number")
     private String phone;
 
     public String getEmail() {

@@ -14,6 +14,7 @@ public class UnifiedSignupRequest {
     private String email;
 
     @NotBlank(message = "Phone is required")
+    @jakarta.validation.constraints.Pattern(regexp = "^[0-9]{10}$", message = "Phone must be a valid 10-digit number")
     private String phone;
 
     @NotBlank(message = "Password is required")

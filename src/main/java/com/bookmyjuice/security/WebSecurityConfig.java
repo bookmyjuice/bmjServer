@@ -25,6 +25,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.bookmyjuice.security.jwt.AuthEntryPointJwt;
 import com.bookmyjuice.security.jwt.AuthTokenFilter;
+import com.bookmyjuice.security.jwt.RouteExistenceFilter;
 import com.bookmyjuice.services.UserDetailsServiceImpl;
 
 @Configuration
@@ -38,6 +39,9 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
 
   @Autowired
   private AuthEntryPointJwt unauthorizedHandler;
+
+  @Autowired
+  private RouteExistenceFilter routeExistenceFilter;
 
   @Autowired
   private RateLimitingFilter rateLimitingFilter;
@@ -80,11 +84,22 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
         .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .authorizeHttpRequests(auth -> auth.requestMatchers("/api/auth/**").permitAll()
-            .requestMatchers("/api/test/**").permitAll()
+        .authorizeHttpRequests(auth -> auth
+            .requestMatchers("/error").permitAll()
+            .requestMatchers("/api/auth/**").permitAll()
             .requestMatchers("/api/health").permitAll()
-            .anyRequest().authenticated());
+            .requestMatchers("/api/subscriptions/pricing/**").permitAll()
+            // Require auth only for /api/ routes (known routes are authenticated, unknown /api/ routes return 401)
+            .requestMatchers("/api/**").authenticated()
+            // All non-API routes fall through to default servlet which returns 404
+            .anyRequest().permitAll());
 
+    // B-09 FIX: Route existence filter runs FIRST - before any security filters.
+    // For unknown /api/ routes, it bypasses the security chain so the
+    // DispatcherServlet returns a proper 404 instead of 401.
+    // Uses SecurityContextHolderAwareRequestFilter as reference since it's the
+    // earliest well-known Spring Security filter with a registered order.
+    http.addFilterBefore(routeExistenceFilter, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter.class);
     // Add rate limiting filter before authentication filters
     http.addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class);
     http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
@@ -136,7 +151,7 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
     config.addAllowedMethod("PUT");
     config.addAllowedMethod("DELETE");
     config.addAllowedMethod("OPTIONS");
-    config.setAllowCredentials(true);
+    config.setAllowCredentials(false);
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", config);

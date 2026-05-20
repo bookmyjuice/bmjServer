@@ -10,8 +10,8 @@ import jakarta.validation.constraints.Size;
 public class SignupRequest {
 
     @NotBlank
-    @Size(min = 3, max = 10)
-    @Pattern(regexp = "^[0-9]*$", message = "must be a number")
+    @Size(min = 10, max = 10)
+    @Pattern(regexp = "^[0-9]{10}$", message = "Username must be a 10-digit phone number")
     private String username;
 
     @NotBlank

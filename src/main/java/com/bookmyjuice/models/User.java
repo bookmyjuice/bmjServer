@@ -30,7 +30,7 @@ public class User {
 	private Long id;
 
 	@NotBlank
-	@Size(max = 20)
+	@Size(min = 10, max = 50)
 	private String username;
 
 	@NotBlank
