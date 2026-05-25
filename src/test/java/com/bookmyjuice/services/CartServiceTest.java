@@ -109,7 +109,6 @@ class CartServiceTest {
         assertNotNull(result.get("cart_id"));
         assertNotNull(result.get("items"));
         assertNotNull(result.get("subtotal"));
-        assertNotNull(result.get("delivery_fee"));
         assertNotNull(result.get("tax"));
         assertNotNull(result.get("grand_total"));
     }

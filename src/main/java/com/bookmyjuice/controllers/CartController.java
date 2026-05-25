@@ -45,7 +45,7 @@ public class CartController {
 
     /**
      * GET /api/v1/cart - Get the current user's cart
-     * Returns cart with items, subtotal, delivery fee, tax, and grand total.
+     * Returns cart with items, subtotal, tax, and grand total.
      * Mobile app MUST use these server-calculated values, NOT calculate locally.
      */
     @GetMapping
@@ -102,7 +102,7 @@ public class CartController {
         } catch (RuntimeException e) {
             logger.warn("Cart operation failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(Map.of("error", e.getMessage()));
+                    .body(Map.of("error", "CART_TYPE_CONFLICT", "message", e.getMessage()));
         } catch (Exception e) {
             logger.error("Error adding item to cart: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

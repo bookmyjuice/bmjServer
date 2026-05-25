@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bookmyjuice.models.entities.WebhookEvent;
-import com.bookmyjuice.repositories.WebhookEventRepository;
+import com.bookmyjuice.repository.WebhookEventRepository;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;

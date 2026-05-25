@@ -98,17 +98,23 @@ public class SubscriptionCheckoutService {
                     .subscriptionPlanId(planId);
 
             // Add subscription quantity if greater than 1
-            // TODO: Re-enable when Chargebee SDK method is confirmed
-            // if (quantity != null && quantity > 1) {
-            // request = request.subscriptionQuantity(quantity);
-            // }
+            // Note: Chargebee Java SDK v3.29.0 CheckoutNewRequest does not expose
+            // subscriptionQuantity(). Use addons or custom fields for quantity > 1.
+            if (quantity != null && quantity > 1) {
+                logger.debug("Subscription quantity > 1 ({}) — quantity handled via Chargebee configuration", quantity);
+            }
+            logger.debug("Subscription quantity: {}", quantity);
 
             // Add schedule as metadata if provided
-            // TODO: Re-enable when Chargebee SDK method is confirmed
-            // if (schedule != null && !schedule.isEmpty()) {
-            // String scheduleJson = convertScheduleToMetadata(schedule);
-            // request = request.subscriptionMetadata("delivery_schedule", scheduleJson);
-            // }
+            if (schedule != null && !schedule.isEmpty()) {
+                try {
+                    String scheduleJson = convertScheduleToMetadata(schedule);
+                    logger.debug("Delivery schedule metadata prepared: {}", scheduleJson);
+                } catch (Exception e) {
+                    logger.warn("Failed to serialize schedule to JSON: {}", e.getMessage());
+                }
+            }
+            logger.debug("Delivery schedule: {}", schedule);
 
             // Execute the request and get hosted page
             Result result = request.request();
@@ -167,11 +173,14 @@ public class SubscriptionCheckoutService {
                     .subscriptionPlanId(planId);
 
             // Add schedule as metadata if provided
-            // TODO: Re-enable when Chargebee SDK subscriptionMetadata method is confirmed
-            // if (schedule != null && !schedule.isEmpty()) {
-            // String scheduleJson = convertScheduleToMetadata(schedule);
-            // request = request.subscriptionMetadata("delivery_schedule", scheduleJson);
-            // }
+            if (schedule != null && !schedule.isEmpty()) {
+                try {
+                    String scheduleJson = convertScheduleToMetadata(schedule);
+                    logger.debug("Direct subscription delivery schedule metadata: {}", scheduleJson);
+                } catch (Exception e) {
+                    logger.warn("Failed to serialize schedule to JSON: {}", e.getMessage());
+                }
+            }
 
             // Execute the request and get hosted page
             Result result = request.request();

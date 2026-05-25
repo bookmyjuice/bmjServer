@@ -40,7 +40,7 @@ public class CheckoutV2Controller {
     private UserRepository userRepository;
 
     /**
-     * POST /api/v1/checkout - Create one-time checkout from user's cart
+     * POST /api/v2/checkout - Create one-time checkout from user's cart
      * Returns a Chargebee Hosted Page URL for payment.
      * 
      * Requirements:

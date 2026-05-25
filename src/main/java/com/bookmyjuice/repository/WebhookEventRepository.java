@@ -1,4 +1,4 @@
-package com.bookmyjuice.repositories;
+package com.bookmyjuice.repository;
 
 import java.time.LocalDateTime;
 import java.util.List;

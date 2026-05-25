@@ -31,6 +31,7 @@ import com.bookmyjuice.dto.request.SendOTPRequest;
 import com.bookmyjuice.dto.request.VerifyOTPRequest;
 import com.bookmyjuice.models.ERole;
 import com.bookmyjuice.models.User;
+import com.bookmyjuice.models.entities.UserAddressEntity;
 import com.bookmyjuice.payload.request.EmailSignupRequest;
 import com.bookmyjuice.payload.request.EmailVerificationRequest;
 import com.bookmyjuice.payload.request.GoogleSignInRequest;
@@ -43,6 +44,7 @@ import com.bookmyjuice.payload.request.VerifyEmailCodeRequest;
 import com.bookmyjuice.payload.response.JwtResponse;
 import com.bookmyjuice.payload.response.MessageResponse;
 import com.bookmyjuice.repository.RoleRepository;
+import com.bookmyjuice.repository.UserAddressRepository;
 import com.bookmyjuice.repository.UserRepository;
 import com.bookmyjuice.security.jwt.JwtUtils;
 import com.bookmyjuice.services.UserDetailsImpl;
@@ -54,8 +56,14 @@ import jakarta.validation.Valid;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping({"/api/auth", "/api/v1/auth"})
 public class AuthController {
+
+    // ─────────────────────────────────────────────────────────
+    // Note: Both /api/auth/* and /api/v1/auth/* endpoints exist.
+    // /api/v1/auth/login is the canonical login endpoint.
+    // /api/auth/signin is kept for backward compatibility.
+    // ─────────────────────────────────────────────────────────
 
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
@@ -79,6 +87,9 @@ public class AuthController {
 
     @Autowired
     JwtUtils jwtUtils;
+
+    @Autowired
+    UserAddressRepository userAddressRepository;
 
     @GetMapping("/autologin")
     public ResponseEntity<?> autoLogin(@RequestHeader(value = "Authorization", required = false) String authorization) {
@@ -646,6 +657,30 @@ public class AuthController {
             userRepository.delete(user);
             return ResponseEntity.internalServerError()
                     .body(new MessageResponse("Error: Failed to create Chargebee customer - " + e.getMessage()));
+        }
+
+        // BUG-006 FIX: Save delivery address to user_addresses table
+        // so checkout flow can find it (was missing: signup stored address only in users table)
+        try {
+            UserAddressEntity deliveryAddress = new UserAddressEntity();
+            deliveryAddress.setUserId(user.getId());
+            deliveryAddress.setLabel("Home");
+            deliveryAddress.setFullName(
+                    (request.getFirstName() != null ? request.getFirstName() : "") + " " +
+                    (request.getLastName() != null ? request.getLastName() : ""));
+            deliveryAddress.setPhone(request.getPhone());
+            deliveryAddress.setAddressLine1(request.getAddress() != null ? request.getAddress() : "");
+            deliveryAddress.setAddressLine2(request.getExtendedAddr() != null ? request.getExtendedAddr() : "");
+            deliveryAddress.setLandmark(request.getExtendedAddr2() != null ? request.getExtendedAddr2() : "");
+            deliveryAddress.setCity(request.getCity() != null ? request.getCity() : "");
+            deliveryAddress.setState(request.getState() != null ? request.getState() : "");
+            deliveryAddress.setPincode(request.getZip() != null ? request.getZip() : "");
+            deliveryAddress.setDefault(true);
+            userAddressRepository.save(deliveryAddress);
+            logger.info("BUG-006 FIX: Created delivery address for user {} ({})", user.getId(), request.getPhone());
+        } catch (Exception e) {
+            // Log but don't fail signup - address can be added later
+            logger.warn("BUG-006 FIX: Failed to create delivery address for user {}: {}", user.getId(), e.getMessage());
         }
 
         // Clear OTP if exists

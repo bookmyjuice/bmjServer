@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bookmyjuice.models.entities.ItemEntity;
@@ -25,6 +26,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 @RestController
 @RequestMapping("/api/test/metadata")
+@PreAuthorize("hasRole('ADMIN')")
 public class MetadataTestController {
 
     private static final Logger logger = LoggerFactory.getLogger(MetadataTestController.class);

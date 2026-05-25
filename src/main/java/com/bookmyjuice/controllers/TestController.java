@@ -94,7 +94,7 @@ public class TestController {
         Map<String, String> response = new HashMap<>();
         response.put("status", "UP");
         response.put("timestamp", Instant.now().toString());
-        response.put("version", "1.0.0-MVP");
+        response.put("version", "3.0.0-Enterprise");
         response.put("environment", "development");
         return ResponseEntity.ok(response);
     }

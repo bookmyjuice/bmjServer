@@ -86,9 +86,10 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
             .requestMatchers("/error").permitAll()
-            .requestMatchers("/api/auth/**").permitAll()
+            .requestMatchers("/api/auth/**", "/api/v1/auth/**").permitAll()
             .requestMatchers("/api/health").permitAll()
             .requestMatchers("/api/subscriptions/pricing/**").permitAll()
+            .requestMatchers("/api/test/**").permitAll()
             // Require auth only for /api/ routes (known routes are authenticated, unknown /api/ routes return 401)
             .requestMatchers("/api/**").authenticated()
             // All non-API routes fall through to default servlet which returns 404

@@ -100,7 +100,7 @@ public class CartService {
     // ──────────────────────────────────────────────
     // Get Cart
     // ──────────────────────────────────────────────
-    @Transactional(readOnly = true)
+    @Transactional
     public Map<String, Object> getCart(User user) {
         logger.info("Getting cart for user: {}", user.getId());
         Cart cart = cartRepo.findByUserId(user.getId())
@@ -248,17 +248,16 @@ public class CartService {
             }
         }
 
-        long deliveryFee = (subtotal >= 50000) ? 0 : 4000;
-        long tax = 0;
-        long grandTotal = subtotal + deliveryFee + tax;
-
+        // Pricing (tax, grand total) is managed entirely by Chargebee.
+        // These values are not calculated locally; they are displayed on the
+        // Chargebee Hosted Page during checkout. Subtotal reflects locally-cached
+        // Chargebee price data.
         Map<String, Object> resp = new HashMap<>();
         resp.put("cart_id", cart.getId());
         resp.put("items", cart.getItems());
         resp.put("subtotal", subtotal);
-        resp.put("delivery_fee", deliveryFee);
-        resp.put("tax", tax);
-        resp.put("grand_total", grandTotal);
+        resp.put("tax", 0);           // Sourced from Chargebee at checkout
+        resp.put("grand_total", subtotal); // Final total shown on Chargebee Hosted Page
         return resp;
     }
 }

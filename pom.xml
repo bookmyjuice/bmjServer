@@ -73,10 +73,11 @@
         <dependency>
             <groupId>com.chargebee</groupId>
             <artifactId>chargebee-java</artifactId>
-            <version>3.29.0</version>
+            <version>3.34.0</version>
         </dependency>
 
         <!-- JSR-305 for @javax.annotation.meta.When (needed by some dependencies) -->
+
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
