@@ -49,6 +49,9 @@ public class WebhookEventProcessor {
     @Autowired
     private com.bookmyjuice.repository.UserRepository userRepository;
 
+    @Autowired
+    private BottleTrackingService bottleTrackingService;
+
     // Store processing results to track what was updated
     private final Map<String, Object> processingResults = new HashMap<>();
 
@@ -440,6 +443,8 @@ public class WebhookEventProcessor {
     private void processRelatedEntitiesForInvoice(Event event) {
         logger.debug("Processing related entities for invoice: {}", event.content().invoice().id());
 
+        var invoice = event.content().invoice();
+
         // Invoice events may include subscription updates
         if (event.content().subscription() != null) {
             subscriptionService.updateSubscription(event);
@@ -450,6 +455,30 @@ public class WebhookEventProcessor {
         if (event.content().creditNote() != null) {
             creditNoteService.saveOrUpdateCreditNote(event);
             processingResults.put("credit_note_updated", true);
+        }
+
+        // Auto-dispatch bottles on payment confirmation (INVOICE_PAID)
+        String eventType = event.eventType().name();
+        if ("INVOICE_PAID".equals(eventType)) {
+            String customerId = invoice.customerId();
+            String invoiceId = invoice.id();
+            // Build a simple line items JSON for auto-dispatch estimation
+            StringBuilder itemsJson = new StringBuilder("[");
+            var lineItems = invoice.lineItems();
+            if (lineItems != null) {
+                int count = 0;
+                for (var item : lineItems) {
+                    if (count > 0) itemsJson.append(",");
+                    itemsJson.append("{\"id\":\"").append(item.id())
+                             .append("\",\"quantity\":").append(item.quantity() != null ? item.quantity() : 1)
+                             .append("}");
+                    count++;
+                }
+            }
+            itemsJson.append("]");
+            bottleTrackingService.autoDispatchBottles(
+                invoiceId, customerId, itemsJson.toString());
+            processingResults.put("bottles_auto_dispatched", true);
         }
     }
 

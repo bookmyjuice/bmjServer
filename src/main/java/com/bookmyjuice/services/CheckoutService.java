@@ -30,6 +30,9 @@ public class CheckoutService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private BottleTrackingService bottleTrackingService;
+
     /**
      * Creates a Chargebee Hosted Page URL for one-time checkout.
      * The user's cart must contain only 'charge' type items (no mixed carts).
