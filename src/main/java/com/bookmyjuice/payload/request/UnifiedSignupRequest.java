@@ -54,6 +54,10 @@ public class UnifiedSignupRequest {
     @Size(max = 2, message = "Country must be 2-letter code")
     private String country;
 
+    private String googleId;
+
+    private String photoUrl;
+
     // Getters and Setters
     public String getEmail() {
         return email;
@@ -149,5 +153,21 @@ public class UnifiedSignupRequest {
 
     public void setCountry(String country) {
         this.country = country;
+    }
+
+    public String getGoogleId() {
+        return googleId;
+    }
+
+    public void setGoogleId(String googleId) {
+        this.googleId = googleId;
+    }
+
+    public String getPhotoUrl() {
+        return photoUrl;
+    }
+
+    public void setPhotoUrl(String photoUrl) {
+        this.photoUrl = photoUrl;
     }
 }

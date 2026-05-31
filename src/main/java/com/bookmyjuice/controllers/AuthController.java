@@ -232,13 +232,46 @@ public class AuthController {
             }
 
             // Step 6: User found - link Google ID if not already linked
+            boolean userModified = false;
             if (user.getGoogleId() == null || user.getGoogleId().isEmpty()) {
                 user.setGoogleId(googleId);
                 user.setGooglePhotoUrl(photoUrl);
+                userModified = true;
+            }
+
+            // Step 7: If user has no Chargebee customer, create one now
+            if (user.getChargebeeCustomerId() == null || user.getChargebeeCustomerId().isEmpty()) {
+                try {
+                    // Try to capture firstName/lastName from Google if user doesn't have them
+                    if (user.getFirstName() == null || user.getFirstName().isEmpty()) {
+                        user.setFirstName(firstName != null ? firstName : email.split("@")[0]);
+                        userModified = true;
+                    }
+                    if (user.getLastName() == null || user.getLastName().isEmpty()) {
+                        user.setLastName(lastName != null ? lastName : "");
+                        userModified = true;
+                    }
+
+                    com.chargebee.Result chargebeeResult = Customer.create()
+                            .email(user.getEmail())
+                            .firstName(user.getFirstName() != null ? user.getFirstName() : "")
+                            .lastName(user.getLastName() != null ? user.getLastName() : "")
+                            .phone(user.getPhone() != null ? user.getPhone() : "")
+                            .preferredCurrencyCode("INR")
+                            .request();
+                    Customer chargebeeCustomer = chargebeeResult.customer();
+                    user.setChargebeeCustomerId(chargebeeCustomer.id());
+                    userModified = true;
+                } catch (Exception e) {
+                    logger.warn("Failed to create Chargebee customer for Google user {}: {}", user.getEmail(), e.getMessage());
+                }
+            }
+
+            if (userModified) {
                 userRepository.save(user);
             }
 
-            // Step 4: Generate JWT for our system with token version
+            // Step 8: Generate JWT for our system with token version
             Authentication authentication = new UsernamePasswordAuthenticationToken(
                     user.getUsername(), null, user.getRoles().stream()
                             .map(role -> new org.springframework.security.core.authority.SimpleGrantedAuthority(
@@ -292,11 +325,29 @@ public class AuthController {
             // Step 3: Link Google ID to existing account
             user.setGoogleId(request.getGoogleId());
             user.setGooglePhotoUrl(request.getPhotoUrl());
+            
+            // Step 4: If user has no Chargebee customer, create one now
+            if (user.getChargebeeCustomerId() == null || user.getChargebeeCustomerId().isEmpty()) {
+                try {
+                    com.chargebee.Result chargebeeResult = Customer.create()
+                            .email(user.getEmail())
+                            .firstName(user.getFirstName() != null ? user.getFirstName() : "")
+                            .lastName(user.getLastName() != null ? user.getLastName() : "")
+                            .phone(user.getPhone() != null ? user.getPhone() : "")
+                            .preferredCurrencyCode("INR")
+                            .request();
+                    Customer chargebeeCustomer = chargebeeResult.customer();
+                    user.setChargebeeCustomerId(chargebeeCustomer.id());
+                } catch (Exception e) {
+                    logger.warn("Failed to create Chargebee customer for linked Google user {}: {}", user.getEmail(), e.getMessage());
+                }
+            }
+
             userRepository.save(user);
 
             otpUtil.clearOTP(request.getPhone());
 
-            // Step 4: Generate JWT with token version
+            // Step 5: Generate JWT with token version
             Authentication authentication = new UsernamePasswordAuthenticationToken(
                     user.getUsername(), null, user.getRoles().stream()
                             .map(role -> new org.springframework.security.core.authority.SimpleGrantedAuthority(
@@ -619,6 +670,14 @@ public class AuthController {
         user.setState(request.getState());
         user.setZip(request.getZip());
         user.setCountry(request.getCountry());
+
+        // Store Google-specific fields if provided (for Google signup flow)
+        if (request.getGoogleId() != null && !request.getGoogleId().isEmpty()) {
+            user.setGoogleId(request.getGoogleId());
+        }
+        if (request.getPhotoUrl() != null && !request.getPhotoUrl().isEmpty()) {
+            user.setGooglePhotoUrl(request.getPhotoUrl());
+        }
 
         // Assign default USER role
         Set<com.bookmyjuice.models.Role> roles = new HashSet<>();

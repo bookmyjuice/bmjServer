@@ -1,4 +1,0 @@
-2026-05-20 05:33:05.059 [http-nio-0.0.0.0-8080-exec-2] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
-2026-05-20 05:33:05.717 [http-nio-0.0.0.0-8080-exec-6] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
-2026-05-20 06:08:33.034 [http-nio-0.0.0.0-8080-exec-6] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
-2026-05-20 06:08:34.442 [http-nio-0.0.0.0-8080-exec-9] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
