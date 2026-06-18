@@ -1,2 +1,0 @@
-2026-05-23 11:43:00.638 [http-nio-0.0.0.0-8080-exec-2] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 0
-2026-05-23 11:43:00.694 [http-nio-0.0.0.0-8080-exec-2] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 0

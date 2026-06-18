@@ -1,0 +1,12 @@
+2026-06-03 14:25:31.462 [http-nio-0.0.0.0-8080-exec-9] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-06-03 14:25:31.462 [http-nio-0.0.0.0-8080-exec-4] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-06-03 14:31:42.336 [http-nio-0.0.0.0-8080-exec-4] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-06-03 14:31:42.336 [http-nio-0.0.0.0-8080-exec-7] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-06-03 14:32:51.836 [http-nio-0.0.0.0-8080-exec-5] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-06-03 14:32:51.842 [http-nio-0.0.0.0-8080-exec-6] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-06-03 15:15:43.800 [http-nio-0.0.0.0-8080-exec-1] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-06-03 15:15:43.800 [http-nio-0.0.0.0-8080-exec-7] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-06-03 15:16:10.684 [http-nio-0.0.0.0-8080-exec-10] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 0
+2026-06-03 15:16:10.689 [http-nio-0.0.0.0-8080-exec-10] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-06-03 15:16:13.549 [http-nio-0.0.0.0-8080-exec-3] ERROR c.bookmyjuice.security.jwt.JwtUtils - Invalid JWT token: JWT strings must contain exactly 2 period characters. Found: 0
+2026-06-03 15:16:13.556 [http-nio-0.0.0.0-8080-exec-3] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource

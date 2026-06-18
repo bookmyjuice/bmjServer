@@ -31,11 +31,20 @@ public class JwtUtils {
   private long jwtExpirationMs;
 
   public String generateJwtToken(Authentication authentication, int tokenVersion) {
+    Object principal = authentication.getPrincipal();
+    String username;
 
-    UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
+    // FIX: Dynamically evaluate principal type to support both login pathways
+    if (principal instanceof UserDetailsImpl userDetailsImpl) {
+      username = userDetailsImpl.getUsername();
+    } else if (principal instanceof String string) {
+      username = string;
+    } else {
+      throw new IllegalArgumentException("Unsupported principal type: " + principal.getClass().getName());
+    }
 
     return Jwts.builder()
-        .setSubject((userPrincipal.getUsername()))
+        .setSubject(username)
         .claim("tokenVersion", tokenVersion)
         .setIssuedAt(new Date())
         .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
@@ -63,7 +72,6 @@ public class JwtUtils {
   }
 
   private Key key() {
-    // Use getBytes() instead of Decoders.BASE64.decode()
     return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
   }
 
@@ -77,7 +85,9 @@ public class JwtUtils {
       return false;
     }
     try {
-      Jwts.parserBuilder().setSigningKey(key()).build().parse(authToken);
+      // FIX: Use parseClaimsJws instead of plain parse to correctly validate signed
+      // tokens
+      Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(authToken);
       return true;
     } catch (MalformedJwtException e) {
       logger.error("Invalid JWT token: {}", e.getMessage());
@@ -94,16 +104,10 @@ public class JwtUtils {
 
   public static String getUserIdFromSecurityContext() {
     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    // Authentication authentication =
-    // SecurityContextHolder.getContext().getAuthentication();
-    System.out.println("Auth: " + authentication);
-    if (authentication != null) {
-      System.out.println("Principal class: " + authentication.getPrincipal().getClass().getName());
-    }
     if (authentication != null && authentication.getPrincipal() instanceof UserDetailsImpl) {
       UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
       return userDetails.getId().toString();
     }
-    return null; // Or throw an exception
+    return null;
   }
 }

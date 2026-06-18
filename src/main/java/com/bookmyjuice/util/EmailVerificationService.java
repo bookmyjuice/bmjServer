@@ -3,14 +3,22 @@ package com.bookmyjuice.util;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
 
 /**
  * Email verification code utility class
- * Note: In production, this should be replaced with actual email service integration
+ * Note: In production, this should be replaced with actual email service
+ * integration
  */
 @Component
 public class EmailVerificationService {
+    @Autowired
+    private JavaMailSender mailSender;
+
     private static final int CODE_LENGTH = 6;
     private static final long CODE_EXPIRY_MINUTES = 10; // Code valid for 10 minutes
     private final Map<String, VerificationCodeData> codeStore = new HashMap<>();
@@ -29,8 +37,17 @@ public class EmailVerificationService {
         long expiryTime = System.currentTimeMillis() + (CODE_EXPIRY_MINUTES * 60 * 1000);
 
         codeStore.put(email.toLowerCase().trim(), new VerificationCodeData(generatedCode, expiryTime, false));
+        SimpleMailMessage message = new SimpleMailMessage();
 
-        // TODO: In production, send code via actual email service
+        message.setFrom("support@bookmyjuice.co.in");
+        message.setTo(email.toLowerCase().trim());
+        message.setSubject("    Your BookMyJuice Email Verification Code    ");
+        message.setText("Your verification code is: " + generatedCode + "\nThis code will expire in "
+                + CODE_EXPIRY_MINUTES + " minutes.");
+
+        mailSender.send(message);
+
+        // development log - remove in production
         System.out.println("⚠️ [DEV] Email verification code for " + email + ": " + generatedCode);
 
         return generatedCode;
@@ -41,7 +58,7 @@ public class EmailVerificationService {
      */
     public boolean verifyCode(String email, String code) {
         String emailKey = email.toLowerCase().trim();
-        
+
         if (!codeStore.containsKey(emailKey)) {
             return false;
         }

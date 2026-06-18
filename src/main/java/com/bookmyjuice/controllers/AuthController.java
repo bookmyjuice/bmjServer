@@ -9,7 +9,6 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -56,7 +55,7 @@ import jakarta.validation.Valid;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
-@RequestMapping({"/api/auth", "/api/v1/auth"})
+@RequestMapping({ "/api/auth", "/api/v1/auth" })
 public class AuthController {
 
     // ─────────────────────────────────────────────────────────
@@ -263,7 +262,8 @@ public class AuthController {
                     user.setChargebeeCustomerId(chargebeeCustomer.id());
                     userModified = true;
                 } catch (Exception e) {
-                    logger.warn("Failed to create Chargebee customer for Google user {}: {}", user.getEmail(), e.getMessage());
+                    logger.warn("Failed to create Chargebee customer for Google user {}: {}", user.getEmail(),
+                            e.getMessage());
                 }
             }
 
@@ -278,6 +278,8 @@ public class AuthController {
                                     role.getName().name()))
                             .collect(Collectors.toList()));
 
+            // 2. Set it into the security context
+            SecurityContextHolder.getContext().setAuthentication(authentication);
             String jwt = jwtUtils.generateJwtToken(authentication, user.getTokenVersion());
             List<String> roles = user.getRoles().stream()
                     .map(role -> role.getName().name())
@@ -325,7 +327,7 @@ public class AuthController {
             // Step 3: Link Google ID to existing account
             user.setGoogleId(request.getGoogleId());
             user.setGooglePhotoUrl(request.getPhotoUrl());
-            
+
             // Step 4: If user has no Chargebee customer, create one now
             if (user.getChargebeeCustomerId() == null || user.getChargebeeCustomerId().isEmpty()) {
                 try {
@@ -339,7 +341,8 @@ public class AuthController {
                     Customer chargebeeCustomer = chargebeeResult.customer();
                     user.setChargebeeCustomerId(chargebeeCustomer.id());
                 } catch (Exception e) {
-                    logger.warn("Failed to create Chargebee customer for linked Google user {}: {}", user.getEmail(), e.getMessage());
+                    logger.warn("Failed to create Chargebee customer for linked Google user {}: {}", user.getEmail(),
+                            e.getMessage());
                 }
             }
 
@@ -562,7 +565,8 @@ public class AuthController {
             // BUG FIX: Check rate limiting before generating OTP
             if (!otpUtil.canSendOTP(request.getPhone())) {
                 return ResponseEntity.badRequest()
-                        .body(new MessageResponse("Error: Too many OTP requests. Please wait before requesting a new OTP."));
+                        .body(new MessageResponse(
+                                "Error: Too many OTP requests. Please wait before requesting a new OTP."));
             }
             String otp = otpUtil.generateOTP(request.getPhone());
             return ResponseEntity.ok(new MessageResponse("Success: OTP sent! Check console for OTP (Dev mode)"));
@@ -719,14 +723,15 @@ public class AuthController {
         }
 
         // BUG-006 FIX: Save delivery address to user_addresses table
-        // so checkout flow can find it (was missing: signup stored address only in users table)
+        // so checkout flow can find it (was missing: signup stored address only in
+        // users table)
         try {
             UserAddressEntity deliveryAddress = new UserAddressEntity();
             deliveryAddress.setUserId(user.getId());
             deliveryAddress.setLabel("Home");
             deliveryAddress.setFullName(
                     (request.getFirstName() != null ? request.getFirstName() : "") + " " +
-                    (request.getLastName() != null ? request.getLastName() : ""));
+                            (request.getLastName() != null ? request.getLastName() : ""));
             deliveryAddress.setPhone(request.getPhone());
             deliveryAddress.setAddressLine1(request.getAddress() != null ? request.getAddress() : "");
             deliveryAddress.setAddressLine2(request.getExtendedAddr() != null ? request.getExtendedAddr() : "");
