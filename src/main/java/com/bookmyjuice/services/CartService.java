@@ -52,20 +52,17 @@ public class CartService {
                     return cartRepo.save(newCart);
                 });
 
-        // 1. Determine item type and validate
+        // 1. Determine item type and validate by trying both repositories.
+        //    Chargebee price IDs can be any format (e.g. "bmj-delight-300ml-weekly",
+        //    "ice-regular-1-999"). We probe SubscriptionPlan first, then OneTimePrice.
         String itemType;
-        if (priceId.startsWith("charge_")) {
-            itemType = "charge";
-            OneTimePrice otp = oneTimePriceRepo.findById(priceId)
-                    .orElseThrow(() -> new RuntimeException("Invalid Item ID: " + priceId));
-            // unitPrice = otp.getPrice();  // validated in getCartResponse
-        } else if (priceId.startsWith("plan_")) {
+        SubscriptionPlan plan = planRepo.findById(priceId).orElse(null);
+        if (plan != null) {
             itemType = "plan";
-            SubscriptionPlan plan = planRepo.findById(priceId)
-                    .orElseThrow(() -> new RuntimeException("Invalid Plan ID: " + priceId));
-            // unitPrice = plan.getPrice();
         } else {
-            throw new IllegalArgumentException("Invalid Price ID format: " + priceId);
+            OneTimePrice otp = oneTimePriceRepo.findById(priceId)
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid Price ID (not found in plan or charge table): " + priceId));
+            itemType = "charge";
         }
 
         // 2. Enforce no mixed carts

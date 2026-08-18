@@ -105,7 +105,6 @@ public class TestController {
      * categories and 200/300/500ml sizes
      */
     @GetMapping("/charge-items")
-    @PreAuthorize("hasRole('USER') or hasRole('MODERATOR') or hasRole('ADMIN')")
     @ResponseBody
     public ResponseEntity<?> getChargeItemsWithCategoriesAndSizes() {
         try {

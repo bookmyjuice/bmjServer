@@ -903,29 +903,64 @@ public class ItemService {
         logger.info("Fetching items from Chargebee with category and size filtering");
 
         try {
-            // Step 1: Fetch all items from Chargebee API
-            com.chargebee.ListResult result = Item.list().request();
+            // Step 1: Fetch ALL items from Chargebee API with pagination
             List<Item> chargebeeItems = new ArrayList<>();
+            String offset = null;
 
-            for (com.chargebee.ListResult.Entry entry : result) {
-                chargebeeItems.add(entry.item());
+            do {
+                com.chargebee.ListResult result;
+                if (offset == null) {
+                    result = Item.list().limit(100).request();
+                } else {
+                    result = Item.list().limit(100).offset(offset).request();
+                }
+
+                for (com.chargebee.ListResult.Entry entry : result) {
+                    chargebeeItems.add(entry.item());
+                }
+
+                offset = result.nextOffset();
+            } while (offset != null);
+
+            logger.info("Fetched {} items from Chargebee (all pages)", chargebeeItems.size());
+
+            // Filter: keep only CHARGE items (not PLAN items) that match valid categories
+            List<Item> chargeItems = chargebeeItems.stream()
+                .filter(item -> item.type() == Item.Type.CHARGE)
+                .collect(java.util.stream.Collectors.toList());
+
+            logger.info("Filtered to {} CHARGE items out of {} total items", chargeItems.size(), chargebeeItems.size());
+
+            // Pre-fetch ALL ItemPrices in a single batch to avoid N+1 API calls
+            Map<String, List<ItemPrice>> pricesByItemId = new java.util.HashMap<>();
+            try {
+                com.chargebee.ListResult allPricesResult = ItemPrice.list().limit(200).request();
+                for (com.chargebee.ListResult.Entry entry : allPricesResult) {
+                    ItemPrice ip = entry.itemPrice();
+                    pricesByItemId.computeIfAbsent(ip.itemId(), k -> new java.util.ArrayList<>()).add(ip);
+                }
+            } catch (Exception e) {
+                logger.warn("Failed to batch-fetch ItemPrices: {}", e.getMessage());
             }
-
-            logger.info("Fetched {} items from Chargebee", chargebeeItems.size());
 
             // Step 2: Convert to DTOs and filter by categories
             List<ChargeItemDTO> filteredItems = new ArrayList<>();
 
-            for (Item chargebeeItem : chargebeeItems) {
+            for (Item chargebeeItem : chargeItems) {
                 // Filter by category (Delight, Signature, Premium)
                 String category = extractCategoryFromMetadata(chargebeeItem.metadata());
+                // Fall back to itemFamilyId if metadata category is null/blank
+                if (category == null || category.trim().isEmpty()) {
+                    category = extractCategoryFromFamilyId(chargebeeItem.itemFamilyId());
+                }
                 if (!isValidCategory(category)) {
                     logger.debug("Skipping item {} - invalid category: {}", chargebeeItem.id(), category);
                     continue;
                 }
 
-                // Convert to DTO
-                ChargeItemDTO dto = convertToChargeItemDTO(chargebeeItem);
+                // Convert to DTO with pre-fetched prices (avoids N+1 API calls)
+                List<ItemPrice> preFetchedPrices = pricesByItemId.get(chargebeeItem.id());
+                ChargeItemDTO dto = convertToChargeItemDTO(chargebeeItem, preFetchedPrices);
                 filteredItems.add(dto);
             }
 
@@ -942,6 +977,20 @@ public class ItemService {
             logger.info("Falling back to local database cache");
             return getItemsFromLocalCache();
         }
+    }
+
+    /**
+     * Extract category from item family ID (e.g. "delight_family" → "delight")
+     */
+    private String extractCategoryFromFamilyId(String familyId) {
+        if (familyId == null || familyId.trim().isEmpty()) {
+            return null;
+        }
+        String lower = familyId.toLowerCase().trim();
+        if (lower.contains("delight")) return "delight";
+        if (lower.contains("signature")) return "signature";
+        if (lower.contains("premium")) return "premium";
+        return null;
     }
 
     /**
@@ -976,8 +1025,16 @@ public class ItemService {
 
     /**
      * Convert Chargebee Item to ChargeItemDTO
+     * Uses the provided pre-fetched prices to avoid N+1 API calls when available.
      */
     private ChargeItemDTO convertToChargeItemDTO(Item chargebeeItem) {
+        return convertToChargeItemDTO(chargebeeItem, null);
+    }
+
+    /**
+     * Convert Chargebee Item to ChargeItemDTO with optional pre-fetched prices
+     */
+    private ChargeItemDTO convertToChargeItemDTO(Item chargebeeItem, List<ItemPrice> preFetchedPrices) {
         ChargeItemDTO dto = ChargeItemDTO.builder()
                 .itemId(chargebeeItem.id())
                 .name(chargebeeItem.name())
@@ -1042,8 +1099,18 @@ public class ItemService {
             }
         }
 
-        // Extract size-based prices (200ml, 300ml, 500ml)
-        dto.setPrices(extractSizePrices(chargebeeItem));
+        // Fall back to itemFamilyId if category is still null/blank after metadata parsing
+        if (dto.getCategory() == null || dto.getCategory().trim().isEmpty()) {
+            String familyCategory = extractCategoryFromFamilyId(chargebeeItem.itemFamilyId());
+            dto.setCategory(familyCategory);
+        }
+
+        // Extract size-based prices: use pre-fetched if available, otherwise individual API call
+        if (preFetchedPrices != null && !preFetchedPrices.isEmpty()) {
+            dto.setPrices(extractSizePricesFromList(chargebeeItem, preFetchedPrices));
+        } else {
+            dto.setPrices(extractSizePrices(chargebeeItem));
+        }
 
         return dto;
     }
@@ -1055,8 +1122,10 @@ public class ItemService {
         List<ChargeItemDTO.ItemPriceDTO> prices = new ArrayList<>();
 
         try {
-            // Fetch all item prices and filter by item ID
-            com.chargebee.ListResult priceResult = ItemPrice.list().request();
+            // Fetch item prices filtered by item ID (avoid N+1 fetching ALL prices)
+            com.chargebee.ListResult priceResult = ItemPrice.list()
+                    .itemId().is(chargebeeItem.id())
+                    .request();
 
             for (com.chargebee.ListResult.Entry entry : priceResult) {
                 ItemPrice itemPrice = entry.itemPrice();
@@ -1260,5 +1329,44 @@ public class ItemService {
             return "500ml";
 
         return null;
+    }
+
+    /**
+     * Extract size prices from a pre-fetched list of ItemPrices (batch mode).
+     * Avoids making individual API calls per item.
+     */
+    private List<ChargeItemDTO.ItemPriceDTO> extractSizePricesFromList(Item chargebeeItem, List<ItemPrice> allPrices) {
+        List<ChargeItemDTO.ItemPriceDTO> prices = new ArrayList<>();
+        if (allPrices == null) return prices;
+
+        try {
+            for (ItemPrice itemPrice : allPrices) {
+                // Filter by item ID
+                if (!itemPrice.itemId().equals(chargebeeItem.id())) {
+                    continue;
+                }
+
+                String size = extractSizeFromItemPrice(itemPrice);
+                if (isValidSize(size)) {
+                    ChargeItemDTO.ItemPriceDTO priceDTO = ChargeItemDTO.ItemPriceDTO.builder()
+                            .priceId(itemPrice.id())
+                            .name(itemPrice.name())
+                            .size(size)
+                            .price(itemPrice.price() != null
+                                    ? java.math.BigDecimal.valueOf(itemPrice.price()).movePointLeft(2)
+                                    : null)
+                            .currencyCode(itemPrice.currencyCode())
+                            .pricingModel(itemPrice.pricingModel() != null ? itemPrice.pricingModel().name() : null)
+                            .period(itemPrice.period())
+                            .periodUnit(itemPrice.periodUnit() != null ? itemPrice.periodUnit().name() : null)
+                            .build();
+                    prices.add(priceDTO);
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("Failed to extract prices from list for item {}: {}", chargebeeItem.id(), e.getMessage());
+        }
+
+        return prices;
     }
 }

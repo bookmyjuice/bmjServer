@@ -1,5 +1,6 @@
 package com.bookmyjuice.services;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -16,6 +17,8 @@ import com.bookmyjuice.repository.PlanRepository;
 import com.bookmyjuice.models.entities.ItemPriceEntity;
 import com.chargebee.Result;
 import com.chargebee.models.HostedPage;
+import com.chargebee.models.Item;
+import com.chargebee.models.ItemPrice;
 import com.chargebee.models.Subscription;
 
 /**
@@ -103,6 +106,13 @@ public class SubscriptionApiService {
                     planMap.put("period", ip.getPeriod());
                     planMap.put("periodUnit", ip.getPeriodUnit());
                     planMap.put("status", ip.getStatus());
+
+                    // Add structured fields derived from item name/id
+                    String itemName = ip.getItem().getName() != null ? ip.getItem().getName() : "";
+                    planMap.put("category", extractCategory(itemName));
+                    planMap.put("sizeLabel", extractSize(itemName));
+                    planMap.put("period", extractPeriodLabel(itemName, ip.getPeriodUnit()));
+
                     plans.add(planMap);
                 }
                 logger.info("Successfully fetched {} plans from local DB (ItemPrices)", plans.size());
@@ -127,11 +137,25 @@ public class SubscriptionApiService {
                 return plans;
             }
             
-            logger.warn("No plans found in local database. Please ensure Chargebee site has items/plans configured and the startup sync ran successfully.");
+            logger.warn("No plans found in local database, falling back to Chargebee API");
+            plans = fetchPlansFromChargebeeApi();
+            if (!plans.isEmpty()) {
+                logger.info("Fetched {} plans from Chargebee API fallback", plans.size());
+                return plans;
+            }
             
         } catch (Exception e) {
             logger.error("Error fetching plans from local DB: {}", e.getMessage(), e);
-            // Gracefully degrade: return empty list instead of throwing
+            // Try Chargebee API as fallback
+            try {
+                plans = fetchPlansFromChargebeeApi();
+                if (!plans.isEmpty()) {
+                    logger.info("Fetched {} plans from Chargebee API fallback after DB error", plans.size());
+                    return plans;
+                }
+            } catch (Exception apiEx) {
+                logger.error("Chargebee API fallback also failed: {}", apiEx.getMessage());
+            }
             logger.warn("Returning empty plans list due to error: {}", e.getMessage());
         }
 
@@ -214,6 +238,95 @@ public class SubscriptionApiService {
             logger.error("Error canceling subscription {}: {}", subscriptionId, e.getMessage(), e);
             throw new Exception("Failed to cancel subscription: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Fetch plans directly from Chargebee API when local DB is empty.
+     * Uses ItemPrice.list() to get all item prices with their item data.
+     */
+    private List<Map<String, Object>> fetchPlansFromChargebeeApi() {
+        List<Map<String, Object>> plans = new ArrayList<>();
+        try {
+            logger.info("Fetching subscription plans directly from Chargebee API");
+            String offset = null;
+
+            do {
+                com.chargebee.ListResult priceResult;
+                if (offset == null) {
+                    priceResult = ItemPrice.list().limit(100).request();
+                } else {
+                    priceResult = ItemPrice.list().limit(100).offset(offset).request();
+                }
+
+                for (com.chargebee.ListResult.Entry entry : priceResult) {
+                    ItemPrice ip = entry.itemPrice();
+
+                    Map<String, Object> planMap = new HashMap<>();
+                    planMap.put("id", ip.id());
+                    planMap.put("name", ip.name());
+                    planMap.put("description", ip.description());
+                    planMap.put("price", ip.price() != null ? BigDecimal.valueOf(ip.price()).movePointLeft(2) : null);
+                    planMap.put("currencyCode", ip.currencyCode());
+                    planMap.put("period", ip.period());
+                    planMap.put("periodUnit", ip.periodUnit() != null ? ip.periodUnit().name() : null);
+                    planMap.put("status", ip.status() != null ? ip.status().name() : "active");
+
+                    // Add structured fields
+                    String itemName = ip.name() != null ? ip.name() : "";
+                    planMap.put("category", extractCategory(itemName));
+                    planMap.put("sizeLabel", extractSize(itemName));
+                    planMap.put("period", extractPeriodLabel(itemName,
+                            ip.periodUnit() != null ? ip.periodUnit().name() : null));
+
+                    plans.add(planMap);
+                }
+
+                offset = priceResult.nextOffset();
+            } while (offset != null);
+
+            logger.info("Fetched {} plans from Chargebee API (all pages)", plans.size());
+        } catch (Exception e) {
+            logger.error("Failed to fetch plans from Chargebee API: {}", e.getMessage());
+        }
+        return plans;
+    }
+
+    /**
+     * Extract category from item name (e.g. "Delight 200ml Weekly" → "delight").
+     */
+    private String extractCategory(String name) {
+        String lower = name.toLowerCase();
+        if (lower.contains("delight")) return "delight";
+        if (lower.contains("signature")) return "signature";
+        if (lower.contains("premium")) return "premium";
+        return "delight";
+    }
+
+    /**
+     * Extract size label from item name (e.g. "Delight 200ml Weekly" → "200").
+     */
+    private String extractSize(String name) {
+        String lower = name.toLowerCase();
+        if (lower.contains("200ml") || lower.contains("200 ml")) return "200";
+        if (lower.contains("300ml") || lower.contains("300 ml")) return "300";
+        if (lower.contains("500ml") || lower.contains("500 ml")) return "500";
+        return "200";
+    }
+
+    /**
+     * Derive a human-readable period label from item name or period unit.
+     */
+    private String extractPeriodLabel(String name, String periodUnit) {
+        String lower = name.toLowerCase();
+        if (lower.contains("weekly") || lower.contains("week")) return "Weekly";
+        if (lower.contains("monthly") || lower.contains("month")) return "Monthly";
+
+        if (periodUnit != null) {
+            String unit = periodUnit.toLowerCase();
+            if (unit.equals("week")) return "Weekly";
+            if (unit.equals("month")) return "Monthly";
+        }
+        return "Weekly";
     }
 
     /**

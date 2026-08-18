@@ -1,0 +1,14 @@
+2026-06-24 05:53:32.529 [http-nio-0.0.0.0-8080-exec-7] ERROR c.bookmyjuice.security.jwt.JwtUtils - JWT token is expired: JWT expired at 2026-06-23T17:48:15Z. Current time: 2026-06-24T05:53:32Z, a difference of 43517406 milliseconds.  Allowed clock skew: 0 milliseconds.
+2026-06-24 05:53:32.529 [http-nio-0.0.0.0-8080-exec-6] ERROR c.bookmyjuice.security.jwt.JwtUtils - JWT token is expired: JWT expired at 2026-06-23T17:48:15Z. Current time: 2026-06-24T05:53:32Z, a difference of 43517406 milliseconds.  Allowed clock skew: 0 milliseconds.
+2026-06-24 05:53:32.530 [http-nio-0.0.0.0-8080-exec-3] ERROR c.bookmyjuice.security.jwt.JwtUtils - JWT token is expired: JWT expired at 2026-06-23T17:48:15Z. Current time: 2026-06-24T05:53:32Z, a difference of 43517406 milliseconds.  Allowed clock skew: 0 milliseconds.
+2026-06-24 05:53:32.530 [http-nio-0.0.0.0-8080-exec-4] ERROR c.bookmyjuice.security.jwt.JwtUtils - JWT token is expired: JWT expired at 2026-06-23T17:48:15Z. Current time: 2026-06-24T05:53:32Z, a difference of 43517406 milliseconds.  Allowed clock skew: 0 milliseconds.
+2026-06-24 05:53:32.530 [http-nio-0.0.0.0-8080-exec-8] ERROR c.bookmyjuice.security.jwt.JwtUtils - JWT token is expired: JWT expired at 2026-06-23T17:48:15Z. Current time: 2026-06-24T05:53:32Z, a difference of 43517406 milliseconds.  Allowed clock skew: 0 milliseconds.
+2026-06-24 05:53:32.560 [http-nio-0.0.0.0-8080-exec-4] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-06-24 05:53:34.432 [http-nio-0.0.0.0-8080-exec-5] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-06-24 13:53:22.713 [http-nio-0.0.0.0-8080-exec-7] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-06-24 13:53:24.238 [http-nio-0.0.0.0-8080-exec-6] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-06-24 16:04:16.327 [http-nio-0.0.0.0-8080-exec-6] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-06-24 16:04:16.327 [http-nio-0.0.0.0-8080-exec-9] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-06-24 16:56:58.007 [http-nio-0.0.0.0-8080-exec-7] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-06-24 16:56:58.007 [http-nio-0.0.0.0-8080-exec-4] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource
+2026-06-24 16:57:05.971 [http-nio-0.0.0.0-8080-exec-9] ERROR c.b.security.jwt.AuthEntryPointJwt - Unauthorized error: Full authentication is required to access this resource

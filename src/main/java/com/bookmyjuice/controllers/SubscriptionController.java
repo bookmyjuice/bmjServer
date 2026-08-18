@@ -23,10 +23,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.bookmyjuice.models.User;
 import com.bookmyjuice.models.entities.CustomerEntity;
 import com.bookmyjuice.models.entities.SubscriptionEntity;
 import com.bookmyjuice.repository.CustomerRepository;
 import com.bookmyjuice.repository.SubscriptionEntityRepository;
+import com.bookmyjuice.repository.UserRepository;
 import com.bookmyjuice.services.SubscriptionApiService;
 import com.bookmyjuice.services.SubscriptionBusinessRulesService;
 import com.bookmyjuice.services.UserDetailsImpl;
@@ -54,6 +56,9 @@ public class SubscriptionController {
 
     @Autowired
     private SubscriptionBusinessRulesService businessRulesService;
+
+    @Autowired
+    private UserRepository userRepository;
 
     /**
      * Get all subscriptions for the current user
@@ -281,13 +286,30 @@ public class SubscriptionController {
     }
 
     /**
-     * Extract customer ID from security context
+     * Extract the Chargebee customer ID from security context.
+     * Looks up the User entity by local DB ID, then returns the chargebeeCustomerId field.
+     * This ensures we send the Chargebee customer ID (e.g. "cbdemo_xxxxx") to Chargebee APIs,
+     * not the local database auto-increment ID.
      */
     private String getCustomerIdFromSecurityContext() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof UserDetailsImpl) {
             UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-            return userDetails.getId().toString();
+            Long localId = userDetails.getId();
+            // Look up the full User entity to get the Chargebee customer ID
+            User user = userRepository.findById(localId).orElse(null);
+            if (user != null && user.getChargebeeCustomerId() != null && !user.getChargebeeCustomerId().isEmpty()) {
+                logger.debug("Resolved Chargebee customer ID: {} for local user: {}", user.getChargebeeCustomerId(), localId);
+                return user.getChargebeeCustomerId();
+            }
+            // Fallback: try CustomerEntity lookup by localId.toString() as customer_id
+            Optional<CustomerEntity> customer = customerRepository.findById(localId.toString());
+            if (customer.isPresent()) {
+                logger.warn("Fallback to CustomerEntity lookup for local user: {}", localId);
+                return customer.get().getId();
+            }
+            logger.error("No Chargebee customer ID found for local user: {}", localId);
+            return null;
         }
         return null;
     }
