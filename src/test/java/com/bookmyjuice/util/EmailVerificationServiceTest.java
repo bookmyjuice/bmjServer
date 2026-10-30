@@ -93,4 +93,43 @@ class EmailVerificationServiceTest {
         boolean result = service.verifyCode("test.user@example.com", code);
         assertTrue(result, "Email casing should be normalized");
     }
+
+    @Test
+    @DisplayName("A second code within the cooldown window is refused")
+    void testResendCooldown() {
+        String email = "cooldown@example.com";
+        service.generateVerificationCode(email);
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> service.generateVerificationCode(email));
+        assertTrue(error.getMessage().contains("Please wait"), "Cooldown message should ask to wait");
+    }
+
+    @Test
+    @DisplayName("A code is discarded after five wrong guesses")
+    void testAttemptCap() {
+        String email = "attempts@example.com";
+        String code = service.generateVerificationCode(email);
+
+        for (int i = 0; i < 5; i++) {
+            assertFalse(service.verifyCode(email, "000000"), "Wrong guess should be rejected");
+            // Guard against the generated code accidentally being 000000.
+            if ("000000".equals(code)) {
+                return;
+            }
+        }
+
+        assertFalse(service.verifyCode(email, code), "Code should be discarded after the attempt cap");
+    }
+
+    @Test
+    @DisplayName("Delivery failure does not throw and the code still verifies")
+    void testDeliveryFailureIsNonFatal() {
+        // mailSender is null in this unit test: sending throws, but the code is
+        // stored first, so signup keeps working when the relay is unavailable.
+        String email = "relay-down@example.com";
+        String code = service.generateVerificationCode(email);
+
+        assertTrue(service.verifyCode(email, code), "Stored code should verify despite delivery failure");
+    }
 }

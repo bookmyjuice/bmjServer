@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 
 import com.bookmyjuice.services.UserDetailsImpl;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
@@ -69,6 +70,83 @@ public class JwtUtils {
       logger.warn("Could not extract token version: {}", e.getMessage());
     }
     return 0;
+  }
+
+  /** Purpose claim that distinguishes a signup token from an access token. */
+  private static final String SIGNUP_TOKEN_PURPOSE = "phone-signup";
+
+  /** Signup tokens are deliberately short-lived: they only bridge OTP to address. */
+  private static final long SIGNUP_TOKEN_TTL_MS = 15 * 60 * 1000L;
+
+  /** Purpose claim that distinguishes an email-proof token from every other token. */
+  private static final String EMAIL_TOKEN_PURPOSE = "email-verify";
+
+  /** Email proofs bridge the email OTP step to account creation; keep it short. */
+  private static final long EMAIL_TOKEN_TTL_MS = 15 * 60 * 1000L;
+
+  /**
+   * Mint the short-lived proof that a phone number was verified (A-1).
+   * Consumed by /auth/phone-signup and /auth/google-signup.
+   */
+  public String generatePhoneVerificationToken(String phone) {
+    return Jwts.builder()
+        .setSubject(phone)
+        .claim("purpose", SIGNUP_TOKEN_PURPOSE)
+        .setIssuedAt(new Date())
+        .setExpiration(new Date(System.currentTimeMillis() + SIGNUP_TOKEN_TTL_MS))
+        .signWith(key(), SignatureAlgorithm.HS256)
+        .compact();
+  }
+
+  /**
+   * Read the verified phone from a signup token.
+   *
+   * @throws IllegalArgumentException when the token is expired, malformed, or
+   *         is not a phone-signup token (e.g. a normal access token)
+   */
+  public String getPhoneFromVerificationToken(String token) {
+    Claims claims = Jwts.parserBuilder()
+        .setSigningKey(key())
+        .build()
+        .parseClaimsJws(token)
+        .getBody();
+    if (!SIGNUP_TOKEN_PURPOSE.equals(claims.get("purpose", String.class))) {
+      throw new IllegalArgumentException("Not a phone verification token");
+    }
+    return claims.getSubject();
+  }
+
+  /**
+   * Mint the short-lived proof that an email address passed the email OTP check.
+   * Consumed by /auth/phone-signup: an account cannot be created from a phone
+   * verification alone any more (email is mandatory at signup).
+   */
+  public String generateEmailVerificationToken(String email) {
+    return Jwts.builder()
+        .setSubject(email)
+        .claim("purpose", EMAIL_TOKEN_PURPOSE)
+        .setIssuedAt(new Date())
+        .setExpiration(new Date(System.currentTimeMillis() + EMAIL_TOKEN_TTL_MS))
+        .signWith(key(), SignatureAlgorithm.HS256)
+        .compact();
+  }
+
+  /**
+   * Read the verified email from an email-proof token.
+   *
+   * @throws IllegalArgumentException when the token is expired, malformed, or is
+   *         not an email-verify token (e.g. a phone signup or access token)
+   */
+  public String getEmailFromVerificationToken(String token) {
+    Claims claims = Jwts.parserBuilder()
+        .setSigningKey(key())
+        .build()
+        .parseClaimsJws(token)
+        .getBody();
+    if (!EMAIL_TOKEN_PURPOSE.equals(claims.get("purpose", String.class))) {
+      throw new IllegalArgumentException("Not an email verification token");
+    }
+    return claims.getSubject();
   }
 
   private Key key() {

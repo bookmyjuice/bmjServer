@@ -27,6 +27,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @RestController
 @RequestMapping("/api/test/metadata")
 @PreAuthorize("hasRole('ADMIN')")
+/**
+ * NON-PRODUCTION metadata writer (V1 launch freeze).
+ *
+ * <p>Everything under {@code /api/test/**} is a development / diagnostics surface. It
+ * is {@code permitAll} in {@code WebSecurityConfig} at the path level; this controller
+ * additionally requires the ADMIN role via {@code @PreAuthorize}.
+ *
+ * @deprecated Non-production surface. No V1 customer-facing flow may depend on it.
+ *     See docs/API.md (Non-Production Endpoints) and docs/BMJ_V1_SCOPE.md.
+ */
+@Deprecated(since = "2026-10-15")
 public class MetadataTestController {
 
     private static final Logger logger = LoggerFactory.getLogger(MetadataTestController.class);

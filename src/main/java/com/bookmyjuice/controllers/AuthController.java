@@ -35,7 +35,9 @@ import com.bookmyjuice.payload.request.EmailSignupRequest;
 import com.bookmyjuice.payload.request.EmailVerificationRequest;
 import com.bookmyjuice.payload.request.GoogleSignInRequest;
 import com.bookmyjuice.payload.request.LinkGoogleAccountRequest;
+import com.bookmyjuice.payload.request.GoogleSignupRequest;
 import com.bookmyjuice.payload.request.LoginRequest;
+import com.bookmyjuice.payload.request.PhoneSignupRequest;
 import com.bookmyjuice.payload.request.ResetPasswordEmailRequest;
 import com.bookmyjuice.payload.request.ResetPasswordMobileRequest;
 import com.bookmyjuice.payload.request.UnifiedSignupRequest;
@@ -89,6 +91,112 @@ public class AuthController {
 
     @Autowired
     UserAddressRepository userAddressRepository;
+
+    /** A-3: internal mailbox for phone-only accounts. Never shown, never billed. */
+    private static final String PHONE_MAILBOX_DOMAIN = "@phone.bookmyjuice.in";
+
+    /** True when the email is the internal phone-mailbox placeholder (A-3). */
+    private boolean isSystemMailbox(String email) {
+        return email != null && email.toLowerCase().endsWith(PHONE_MAILBOX_DOMAIN);
+    }
+
+    /** Redeem a signup token; null when the token is invalid, expired or wrong-purpose. */
+    private String redeemSignupToken(String signupToken) {
+        try {
+            return jwtUtils.getPhoneFromVerificationToken(signupToken);
+        } catch (Exception e) {
+            logger.warn("Rejected signup token: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Redeem an email-proof token; null when the token is invalid, expired or
+     * wrong-purpose. The returned address is lower-cased for comparison.
+     */
+    private String redeemEmailVerificationToken(String emailVerificationToken) {
+        if (emailVerificationToken == null || emailVerificationToken.isBlank()) {
+            return null;
+        }
+        try {
+            String email = jwtUtils.getEmailFromVerificationToken(emailVerificationToken.trim());
+            return email == null ? null : email.trim().toLowerCase();
+        } catch (Exception e) {
+            logger.warn("Rejected email verification token: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** Trim a nullable string and turn blank into null (optional address fields). */
+    private String blankToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    /** Best-effort Chargebee customer creation. A-3: never for a system mailbox. */
+    private void createChargebeeCustomer(User user) {
+        if (isSystemMailbox(user.getEmail())) {
+            logger.info("Skipping Chargebee customer for {}: system mailbox", user.getUsername());
+            return;
+        }
+        try {
+            com.chargebee.Result chargebeeResult = Customer.create()
+                    .email(user.getEmail())
+                    .firstName(user.getFirstName() != null ? user.getFirstName() : "")
+                    .lastName(user.getLastName() != null ? user.getLastName() : "")
+                    .phone(user.getPhone() != null ? user.getPhone() : "")
+                    .preferredCurrencyCode("INR")
+                    .request();
+            user.setChargebeeCustomerId(chargebeeResult.customer().id());
+            userRepository.save(user);
+        } catch (Exception e) {
+            logger.warn("Failed to create Chargebee customer for {}: {}", user.getEmail(), e.getMessage());
+        }
+    }
+
+    /** Persist the first delivery address; a failure never fails the signup. */
+    private void saveDefaultAddress(User user, String fullName, String phone, String line1,
+            String line2, String landmark, String city, String state, String zip) {
+        if (line1 == null || line1.isBlank()) {
+            // Address is optional at signup; the customer can add it later.
+            logger.info("No delivery address supplied for user {} (skipped)", user.getId());
+            return;
+        }
+        try {
+            UserAddressEntity address = new UserAddressEntity();
+            address.setUserId(user.getId());
+            address.setLabel("Home");
+            address.setFullName(fullName != null ? fullName : "");
+            address.setPhone(phone);
+            address.setAddressLine1(line1 != null ? line1 : "");
+            address.setAddressLine2(line2 != null ? line2 : "");
+            address.setLandmark(landmark != null ? landmark : "");
+            address.setCity(city != null ? city : "");
+            address.setState(state != null ? state : "");
+            address.setPincode(zip != null ? zip : "");
+            address.setDefault(true);
+            userAddressRepository.save(address);
+        } catch (Exception e) {
+            logger.warn("Failed to create delivery address for user {}: {}", user.getId(), e.getMessage());
+        }
+    }
+
+    /** Issue the same JWT shape every other login path returns. */
+    private JwtResponse jwtFor(User user) {
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                user.getUsername(), null, user.getRoles().stream()
+                        .map(role -> new org.springframework.security.core.authority.SimpleGrantedAuthority(
+                                role.getName().name()))
+                        .collect(Collectors.toList()));
+        String jwt = jwtUtils.generateJwtToken(authentication, user.getTokenVersion());
+        List<String> roles = user.getRoles().stream()
+                .map(role -> role.getName().name())
+                .collect(Collectors.toList());
+        return new JwtResponse(jwt, user.getId(), user.getUsername(), user.getEmail(), roles, true);
+    }
 
     @GetMapping("/autologin")
     public ResponseEntity<?> autoLogin(@RequestHeader(value = "Authorization", required = false) String authorization) {
@@ -239,7 +347,8 @@ public class AuthController {
             }
 
             // Step 7: If user has no Chargebee customer, create one now
-            if (user.getChargebeeCustomerId() == null || user.getChargebeeCustomerId().isEmpty()) {
+            if (!isSystemMailbox(user.getEmail())
+                && (user.getChargebeeCustomerId() == null || user.getChargebeeCustomerId().isEmpty())) {
                 try {
                     // Try to capture firstName/lastName from Google if user doesn't have them
                     if (user.getFirstName() == null || user.getFirstName().isEmpty()) {
@@ -329,7 +438,8 @@ public class AuthController {
             user.setGooglePhotoUrl(request.getPhotoUrl());
 
             // Step 4: If user has no Chargebee customer, create one now
-            if (user.getChargebeeCustomerId() == null || user.getChargebeeCustomerId().isEmpty()) {
+            if (!isSystemMailbox(user.getEmail())
+                && (user.getChargebeeCustomerId() == null || user.getChargebeeCustomerId().isEmpty())) {
                 try {
                     com.chargebee.Result chargebeeResult = Customer.create()
                             .email(user.getEmail())
@@ -429,6 +539,32 @@ public class AuthController {
             }
 
             if (user != null) {
+                // Step 3 (D-2): Backfill the Chargebee customer if this account never got one.
+                // Mirrors the Google sign-in repair block so an OTP sign-in can no longer
+                // dead-end at checkout with "Chargebee customer ID not found"
+                // (CheckoutService.java:68, SubscriptionCheckoutService.java:87-89).
+                // Best-effort: a Chargebee failure is logged and the sign-in still succeeds.
+                if (!isSystemMailbox(user.getEmail())
+                && (user.getChargebeeCustomerId() == null || user.getChargebeeCustomerId().isEmpty())) {
+                    try {
+                        com.chargebee.Result chargebeeResult = Customer.create()
+                                .email(user.getEmail())
+                                .firstName(user.getFirstName() != null ? user.getFirstName() : "")
+                                .lastName(user.getLastName() != null ? user.getLastName() : "")
+                                .phone(user.getPhone() != null ? user.getPhone() : request.getPhone())
+                                .preferredCurrencyCode("INR")
+                                .request();
+                        Customer chargebeeCustomer = chargebeeResult.customer();
+                        user.setChargebeeCustomerId(chargebeeCustomer.id());
+                        userRepository.save(user);
+                        logger.info("Backfilled Chargebee customer {} for OTP user {}",
+                                chargebeeCustomer.id(), user.getUsername());
+                    } catch (Exception e) {
+                        logger.warn("Failed to backfill Chargebee customer for OTP user {}: {}",
+                                user.getEmail(), e.getMessage());
+                    }
+                }
+
                 // User exists - generate JWT and login
                 Authentication authentication = new UsernamePasswordAuthenticationToken(
                         user.getUsername(), null, user.getRoles().stream()
@@ -448,10 +584,13 @@ public class AuthController {
             } else {
                 // User doesn't exist - frontend should start signup flow
                 otpUtil.clearOTP(request.getPhone());
-                return ResponseEntity.ok(Map.of(
-                        "status", "user_not_found",
-                        "message", "OTP verified. No account found - please complete signup.",
-                        "phone", request.getPhone()));
+                String signupToken = jwtUtils.generatePhoneVerificationToken(request.getPhone());
+                Map<String, Object> body = new java.util.HashMap<>();
+                body.put("status", "user_not_found");
+                body.put("message", "OTP verified. No account found - please complete signup.");
+                body.put("phone", request.getPhone());
+                body.put("signupToken", signupToken);
+                return ResponseEntity.ok(body);
             }
         } catch (Exception e) {
             logger.error("Error in OTP login: {}", e.getMessage(), e);
@@ -464,6 +603,219 @@ public class AuthController {
      * BR-009 Method 1: Reset password via mobile OTP.
      * Validates phone number, OTP, then sets new password.
      */
+    /**
+     * A-1: passwordless phone-first signup.
+     *
+     * Two proofs are required: the phone OTP (via `signupToken`) and the email
+     * OTP (via `emailVerificationToken`). The email is mandatory since the
+     * mandatory-email redesign, which also guarantees that a Chargebee customer
+     * can be provisioned for every account (DP-3). The address is optional.
+     */
+    @PostMapping("/phone-signup")
+    public ResponseEntity<?> phoneSignup(@Valid @RequestBody PhoneSignupRequest request) {
+        String phone = redeemSignupToken(request.getSignupToken());
+        if (phone == null || phone.isEmpty()) {
+            return ResponseEntity.badRequest().body(new MessageResponse(
+                    "Error: Phone verification expired. Please verify your number again."));
+        }
+
+        String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase();
+        String verifiedEmail = redeemEmailVerificationToken(request.getEmailVerificationToken());
+        if (verifiedEmail == null || verifiedEmail.isEmpty()) {
+            return ResponseEntity.badRequest().body(new MessageResponse(
+                    "Error: Email verification expired. Please verify your email again."));
+        }
+        if (!verifiedEmail.equalsIgnoreCase(email)) {
+            return ResponseEntity.badRequest().body(new MessageResponse(
+                    "Error: The verified email does not match the email on this request. Please verify it again."));
+        }
+
+        if (userRepository.existsByUsername(phone) || userRepository.findByPhone(phone).isPresent()) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: Phone number is already registered!"));
+        }
+        if (userRepository.existsByEmail(email)) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: Email is already registered!"));
+        }
+
+        String firstName = request.getFirstName().trim();
+        String lastName = request.getLastName() == null ? "" : request.getLastName().trim();
+
+        // Random, unrecoverable password: the column is NOT NULL but no UI can
+        // ever use it. Accounts are reached by Google or phone OTP only.
+        User user = new User(phone, email, encoder.encode(java.util.UUID.randomUUID().toString()));
+        user.setFirstName(firstName);
+        user.setLastName(lastName);
+        user.setPhone(phone);
+        user.setAddress(blankToNull(request.getAddress()));
+        user.setExtendedAddr(blankToNull(request.getExtendedAddr()));
+        user.setExtendedAddr2(blankToNull(request.getExtendedAddr2()));
+        user.setCity(blankToNull(request.getCity()));
+        user.setState(blankToNull(request.getState()));
+        user.setZip(blankToNull(request.getZip()));
+        user.setCountry(blankToNull(request.getCountry()));
+
+        Set<com.bookmyjuice.models.Role> roles = new HashSet<>();
+        com.bookmyjuice.models.Role userRole = roleRepository.findByName(ERole.ROLE_USER)
+                .orElseThrow(() -> new RuntimeException("Error: ROLE_USER is not found."));
+        roles.add(userRole);
+        user.setRoles(roles);
+        userRepository.save(user);
+
+        createChargebeeCustomer(user);
+        saveDefaultAddress(
+                user,
+                (firstName + " " + lastName).trim(),
+                phone,
+                request.getAddress(),
+                request.getExtendedAddr(),
+                request.getExtendedAddr2(),
+                request.getCity(),
+                request.getState(),
+                request.getZip());
+
+        otpUtil.clearOTP(phone);
+        logger.info("Phone-first account created for {} ({})", phone, email);
+        return ResponseEntity.ok(jwtFor(user));
+    }
+
+    /**
+     * A-1: passwordless Google-first signup.
+     *
+     * The Google identity is verified from the ID token on the server (never
+     * trusted from the body); the phone comes from the verified signup token.
+     */
+    @PostMapping("/google-signup")
+    public ResponseEntity<?> googleSignup(@Valid @RequestBody GoogleSignupRequest request) {
+        String phone = redeemSignupToken(request.getSignupToken());
+        if (phone == null || phone.isEmpty()) {
+            return ResponseEntity.badRequest().body(new MessageResponse(
+                    "Error: Phone verification expired. Please verify your number again."));
+        }
+
+        String email = null;
+        String firstName = null;
+        String lastName = null;
+        String photoUrl = null;
+        String googleId = null;
+
+        try {
+            java.net.URI uri = new java.net.URI(
+                    String.format("https://oauth2.googleapis.com/tokeninfo?id_token=%s",
+                            java.net.URLEncoder.encode(request.getIdToken(),
+                                    java.nio.charset.StandardCharsets.UTF_8)));
+            java.net.http.HttpRequest httpRequest = java.net.http.HttpRequest.newBuilder()
+                    .uri(uri)
+                    .GET()
+                    .build();
+            java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                    .connectTimeout(java.time.Duration.ofSeconds(10))
+                    .build();
+            java.net.http.HttpResponse<String> response = client.send(httpRequest,
+                    java.net.http.HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() != 200) {
+                return ResponseEntity.badRequest()
+                        .body(new MessageResponse("Error: Invalid Google ID token"));
+            }
+
+            com.fasterxml.jackson.databind.JsonNode tokenInfo =
+                    new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.body());
+            email = tokenInfo.path("email").asText(null);
+            firstName = tokenInfo.path("given_name").asText(null);
+            lastName = tokenInfo.path("family_name").asText(null);
+            photoUrl = tokenInfo.path("picture").asText(null);
+            googleId = tokenInfo.path("sub").asText(null);
+            boolean emailVerified = tokenInfo.path("email_verified").asBoolean(false);
+
+            if (!emailVerified) {
+                return ResponseEntity.badRequest()
+                        .body(new MessageResponse("Error: Email not verified by Google"));
+            }
+        } catch (java.net.URISyntaxException e) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: Invalid Google token format"));
+        } catch (java.io.IOException | InterruptedException e) {
+            return ResponseEntity.internalServerError()
+                    .body(new MessageResponse("Error: Google verification service unavailable"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: Google authentication failed - " + e.getMessage()));
+        }
+
+        if (email == null || email.isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: Email not provided by Google"));
+        }
+        if (googleId == null || googleId.isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: Google account id missing"));
+        }
+
+if (userRepository.existsByUsername(phone) || userRepository.findByPhone(phone).isPresent()) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Error: Phone number is already registered!"));
+        }
+        if (userRepository.existsByEmail(email)) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse(
+                            "Error: Email is already registered! Sign in with Google instead."));
+        }
+        for (User existing : userRepository.findAll()) {
+            if (googleId.equals(existing.getGoogleId())) {
+                return ResponseEntity.badRequest()
+                        .body(new MessageResponse(
+                                "Error: This Google account is already linked to another account."));
+            }
+        }
+
+        String resolvedFirstName = (firstName == null || firstName.isEmpty())
+                ? email.split("@")[0]
+                : firstName;
+        String resolvedLastName = lastName == null ? "" : lastName;
+
+        // Random, unrecoverable password: the column is NOT NULL but no UI can
+        // ever use it. Accounts are reached by Google or phone OTP only.
+        User user = new User(phone, email.toLowerCase().trim(),
+                encoder.encode(java.util.UUID.randomUUID().toString()));
+        user.setFirstName(resolvedFirstName);
+        user.setLastName(resolvedLastName);
+        user.setPhone(phone);
+        user.setGoogleId(googleId);
+        user.setGooglePhotoUrl(photoUrl);
+        user.setAddress(request.getAddress());
+        user.setExtendedAddr(request.getExtendedAddr());
+        user.setExtendedAddr2(request.getExtendedAddr2());
+        user.setCity(request.getCity());
+        user.setState(request.getState());
+        user.setZip(request.getZip());
+        user.setCountry(request.getCountry());
+
+        Set<com.bookmyjuice.models.Role> roles = new HashSet<>();
+        com.bookmyjuice.models.Role userRole = roleRepository.findByName(ERole.ROLE_USER)
+                .orElseThrow(() -> new RuntimeException("Error: ROLE_USER is not found."));
+        roles.add(userRole);
+        user.setRoles(roles);
+        userRepository.save(user);
+
+        createChargebeeCustomer(user);
+        saveDefaultAddress(
+                user,
+                (resolvedFirstName + " " + resolvedLastName).trim(),
+                phone,
+                request.getAddress(),
+                request.getExtendedAddr(),
+                request.getExtendedAddr2(),
+                request.getCity(),
+                request.getState(),
+                request.getZip());
+
+        otpUtil.clearOTP(phone);
+        logger.info("Google-first account created for {} ({})", phone, email);
+        return ResponseEntity.ok(jwtFor(user));
+    }
+
     @PostMapping("/reset-password-mobile")
     public ResponseEntity<?> resetPasswordViaMobile(@Valid @RequestBody ResetPasswordMobileRequest request) {
         String pwValidation = validatePassword(request.getPassword());
@@ -591,35 +943,53 @@ public class AuthController {
     }
 
     /**
-     * Send email verification code (NEW unified signup flow)
+     * Send an email verification code (signup step: the email is mandatory).
+     *
+     * Responds 429 when a code was issued for the same address less than 30
+     * seconds ago, which keeps the public endpoint from being used to email-bomb.
      */
     @PostMapping("/send-email-verification")
     public ResponseEntity<?> sendEmailVerification(@Valid @RequestBody EmailVerificationRequest request) {
+        String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase();
         try {
             // Check if email is already registered
-            if (userRepository.existsByEmail(request.getEmail())) {
+            if (userRepository.existsByEmail(email)) {
                 return ResponseEntity
                         .badRequest()
                         .body(new MessageResponse("Error: Email is already registered!"));
             }
 
-            String code = emailVerificationService.generateVerificationCode(request.getEmail());
-            return ResponseEntity.ok(new MessageResponse("Success: Verification code sent to " + request.getEmail()));
+            emailVerificationService.generateVerificationCode(email);
+            logger.info("Email verification code sent to {}", email);
+            return ResponseEntity.ok(new MessageResponse("Success: Verification code sent to " + email));
+        } catch (IllegalStateException cooldown) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS)
+                    .body(new MessageResponse("Error: " + cooldown.getMessage()));
         } catch (Exception e) {
+            logger.error("Failed to send email verification code to {}: {}", email, e.getMessage());
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("Error: Failed to send verification code - " + e.getMessage()));
         }
     }
 
     /**
-     * Verify email verification code (NEW unified signup flow)
+     * Verify an email verification code (signup step).
+     *
+     * On success the code is consumed and the response carries
+     * {@code emailVerificationToken}: the signed, 15-minute proof that
+     * `/auth/phone-signup` requires next to the phone `signupToken`.
      */
     @PostMapping("/verify-email-code")
     public ResponseEntity<?> verifyEmailCode(@Valid @RequestBody VerifyEmailCodeRequest request) {
+        String email = request.getEmail() == null ? "" : request.getEmail().trim().toLowerCase();
         try {
-            if (emailVerificationService.verifyCode(request.getEmail(), request.getVerificationCode())) {
-                emailVerificationService.clearCode(request.getEmail());
-                return ResponseEntity.ok(new MessageResponse("Success: Email verified!"));
+            if (emailVerificationService.verifyCode(email, request.getVerificationCode())) {
+                emailVerificationService.clearCode(email);
+                Map<String, Object> body = new java.util.LinkedHashMap<>();
+                body.put("message", "Success: Email verified!");
+                body.put("email", email);
+                body.put("emailVerificationToken", jwtUtils.generateEmailVerificationToken(email));
+                return ResponseEntity.ok(body);
             } else {
                 return ResponseEntity.badRequest()
                         .body(new MessageResponse("Error: Invalid or expired verification code!"));

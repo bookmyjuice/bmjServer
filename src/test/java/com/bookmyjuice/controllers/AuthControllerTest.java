@@ -44,6 +44,8 @@ import com.bookmyjuice.models.User;
 import com.bookmyjuice.payload.request.EmailSignupRequest;
 import com.bookmyjuice.payload.request.EmailVerificationRequest;
 import com.bookmyjuice.payload.request.GoogleSignInRequest;
+import com.bookmyjuice.payload.request.GoogleSignupRequest;
+import com.bookmyjuice.payload.request.PhoneSignupRequest;
 import com.bookmyjuice.payload.request.LinkGoogleAccountRequest;
 import com.bookmyjuice.payload.request.LoginRequest;
 import com.bookmyjuice.payload.request.ResetPasswordEmailRequest;
@@ -56,6 +58,7 @@ import com.bookmyjuice.repository.RoleRepository;
 import com.bookmyjuice.repository.UserRepository;
 import com.bookmyjuice.security.jwt.JwtUtils;
 import com.bookmyjuice.services.UserDetailsImpl;
+import com.bookmyjuice.repository.UserAddressRepository;
 import com.bookmyjuice.util.EmailVerificationService;
 import com.bookmyjuice.util.OTPUtil;
 
@@ -81,6 +84,9 @@ class AuthControllerTest {
 
     @Mock
     private EmailVerificationService emailVerificationService;
+
+    @Mock
+    private UserAddressRepository userAddressRepository;
 
     @InjectMocks
     private AuthController authController;
@@ -311,6 +317,7 @@ class AuthControllerTest {
         @DisplayName("Should return 500 when Chargebee creation fails (no Chargebee mock)")
         void testSignup_ChargebeeFailure() {
             EmailSignupRequest request = new EmailSignupRequest();
+            request.setPhone("9876543210");
             request.setEmail("test@example.com");
             request.setPassword("SecurePass123!");
             request.setFirstName("John");
@@ -337,6 +344,7 @@ class AuthControllerTest {
         @DisplayName("Should succeed when role found and save works")
         void testSignup_SaveSucceeds() {
             EmailSignupRequest request = new EmailSignupRequest();
+            request.setPhone("9876543210");
             request.setEmail("new@example.com");
             request.setPassword("SecurePass123!");
             request.setFirstName("John");
@@ -361,6 +369,7 @@ class AuthControllerTest {
         @DisplayName("Should throw RuntimeException when ROLE_USER not found")
         void testSignup_RoleNotFound() {
             EmailSignupRequest request = new EmailSignupRequest();
+            request.setPhone("9876543210");
             request.setEmail("test@example.com");
             request.setPassword("SecurePass123!");
 
@@ -498,6 +507,7 @@ class AuthControllerTest {
         @DisplayName("Should return 200 when OTP is generated successfully")
         void testSendOtp_Success() {
             SendOTPRequest request = new SendOTPRequest("9876543210");
+            when(otpUtil.canSendOTP("9876543210")).thenReturn(true);
             when(otpUtil.generateOTP("9876543210")).thenReturn("123456");
 
             ResponseEntity<?> response = authController.sendOTP(request);
@@ -509,6 +519,7 @@ class AuthControllerTest {
         @DisplayName("Should return 400 when OTP generation fails")
         void testSendOtp_Exception() {
             SendOTPRequest request = new SendOTPRequest("9876543210");
+            when(otpUtil.canSendOTP("9876543210")).thenReturn(true);
             when(otpUtil.generateOTP("9876543210")).thenThrow(new RuntimeException("SMS service down"));
 
             ResponseEntity<?> response = authController.sendOTP(request);
@@ -682,6 +693,21 @@ class AuthControllerTest {
         }
 
         @Test
+        @DisplayName("Should return 429 when a code was just sent")
+        void testSendEmailVerification_Cooldown() {
+            EmailVerificationRequest request = new EmailVerificationRequest();
+            request.setEmail("new@example.com");
+            when(userRepository.existsByEmail("new@example.com")).thenReturn(false);
+            when(emailVerificationService.generateVerificationCode("new@example.com"))
+                    .thenThrow(new IllegalStateException("Please wait 30 seconds before requesting another code"));
+
+            ResponseEntity<?> response = authController.sendEmailVerification(request);
+
+            assertEquals(HttpStatus.TOO_MANY_REQUESTS, response.getStatusCode());
+            assertTrue(((MessageResponse) response.getBody()).getMessage().contains("Please wait"));
+        }
+
+        @Test
         @DisplayName("Should handle exceptions")
         void testSendEmailVerification_Exception() {
             EmailVerificationRequest request = new EmailVerificationRequest();
@@ -702,16 +728,21 @@ class AuthControllerTest {
     class VerifyEmailCodeTests {
 
         @Test
-        @DisplayName("Should return 200 when code is valid")
+        @DisplayName("Should return 200 and an email verification token when code is valid")
         void testVerifyEmailCode_Success() {
             VerifyEmailCodeRequest request = new VerifyEmailCodeRequest();
             request.setEmail("user@example.com");
             request.setVerificationCode("123456");
             when(emailVerificationService.verifyCode("user@example.com", "123456")).thenReturn(true);
+            when(jwtUtils.generateEmailVerificationToken("user@example.com")).thenReturn("email-proof-token");
 
             ResponseEntity<?> response = authController.verifyEmailCode(request);
             assertEquals(HttpStatus.OK, response.getStatusCode());
-            assertTrue(((MessageResponse) response.getBody()).getMessage().contains("Email verified"));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> body = (Map<String, Object>) response.getBody();
+            assertEquals("Success: Email verified!", body.get("message"));
+            assertEquals("user@example.com", body.get("email"));
+            assertEquals("email-proof-token", body.get("emailVerificationToken"));
             verify(emailVerificationService).clearCode("user@example.com");
         }
 
@@ -1203,6 +1234,173 @@ class AuthControllerTest {
 
             ResponseEntity<?> response = authController.linkGoogleAccount(request);
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        }
+    }
+
+    // ============================================================
+    // Nested: passwordless signup (A-1)
+    // ============================================================
+    @Nested
+    @DisplayName("passwordless signup endpoint tests")
+    class PasswordlessSignupTests {
+
+        private PhoneSignupRequest phoneRequest(String token, String email) {
+            PhoneSignupRequest request = new PhoneSignupRequest();
+            request.setSignupToken(token);
+            request.setFirstName("Asha");
+            request.setLastName("Rao");
+            request.setEmail(email);
+            request.setEmailVerificationToken("email-proof");
+            request.setAddress("12 MG Road");
+            request.setExtendedAddr("Near Metro");
+            request.setExtendedAddr2("");
+            request.setCity("Bengaluru");
+            request.setState("Karnataka");
+            request.setZip("560001");
+            request.setCountry("IN");
+            return request;
+        }
+
+        @Test
+        @DisplayName("phone-signup rejects an invalid signup token")
+        void testPhoneSignup_InvalidToken() {
+            when(jwtUtils.getPhoneFromVerificationToken("bad-token"))
+                    .thenThrow(new IllegalArgumentException("bad token"));
+
+            ResponseEntity<?> response = authController.phoneSignup(phoneRequest("bad-token", ""));
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertTrue(((MessageResponse) response.getBody()).getMessage().contains("Phone verification expired"));
+            verify(userRepository, never()).save(any(User.class));
+        }
+
+        @Test
+        @DisplayName("phone-signup rejects a missing email verification token")
+        void testPhoneSignup_MissingEmailProof() {
+            when(jwtUtils.getPhoneFromVerificationToken("good-token")).thenReturn("9876543210");
+            when(jwtUtils.getEmailFromVerificationToken("email-proof"))
+                    .thenThrow(new IllegalArgumentException("expired"));
+
+            ResponseEntity<?> response = authController.phoneSignup(phoneRequest("good-token", "asha@example.com"));
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertTrue(((MessageResponse) response.getBody()).getMessage().contains("Email verification expired"));
+            verify(userRepository, never()).save(any(User.class));
+        }
+
+        @Test
+        @DisplayName("phone-signup rejects a verified email that differs from the request")
+        void testPhoneSignup_EmailMismatch() {
+            when(jwtUtils.getPhoneFromVerificationToken("good-token")).thenReturn("9876543210");
+            when(jwtUtils.getEmailFromVerificationToken("email-proof")).thenReturn("other@example.com");
+
+            ResponseEntity<?> response = authController.phoneSignup(phoneRequest("good-token", "asha@example.com"));
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertTrue(((MessageResponse) response.getBody()).getMessage().contains("does not match"));
+            verify(userRepository, never()).save(any(User.class));
+        }
+
+        @Test
+        @DisplayName("phone-signup rejects an already registered phone")
+        void testPhoneSignup_DuplicatePhone() {
+            when(jwtUtils.getPhoneFromVerificationToken("good-token")).thenReturn("9876543210");
+            when(jwtUtils.getEmailFromVerificationToken("email-proof")).thenReturn("asha@example.com");
+            when(userRepository.existsByUsername("9876543210")).thenReturn(true);
+
+            ResponseEntity<?> response = authController.phoneSignup(phoneRequest("good-token", "asha@example.com"));
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertTrue(((MessageResponse) response.getBody()).getMessage().contains("already registered"));
+            verify(userRepository, never()).save(any(User.class));
+        }
+
+        @Test
+        @DisplayName("phone-signup rejects an already registered email")
+        void testPhoneSignup_DuplicateEmail() {
+            when(jwtUtils.getPhoneFromVerificationToken("good-token")).thenReturn("9876543210");
+            when(jwtUtils.getEmailFromVerificationToken("email-proof")).thenReturn("asha@example.com");
+            when(userRepository.existsByUsername("9876543210")).thenReturn(false);
+            when(userRepository.findByPhone("9876543210")).thenReturn(Optional.empty());
+            when(userRepository.existsByEmail("asha@example.com")).thenReturn(true);
+
+            ResponseEntity<?> response = authController.phoneSignup(phoneRequest("good-token", "asha@example.com"));
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertTrue(((MessageResponse) response.getBody()).getMessage().contains("Email is already registered"));
+            verify(userRepository, never()).save(any(User.class));
+        }
+
+        @Test
+        @DisplayName("phone-signup stores the verified email and returns a JWT")
+        void testPhoneSignup_VerifiedEmail() {
+            when(jwtUtils.getPhoneFromVerificationToken("good-token")).thenReturn("9876543210");
+            when(jwtUtils.getEmailFromVerificationToken("email-proof")).thenReturn("ASHA@example.com");
+            when(userRepository.existsByUsername("9876543210")).thenReturn(false);
+            when(userRepository.findByPhone("9876543210")).thenReturn(Optional.empty());
+            when(userRepository.existsByEmail("asha@example.com")).thenReturn(false);
+            when(passwordEncoder.encode(anyString())).thenReturn("random-hash");
+            when(roleRepository.findByName(ERole.ROLE_USER)).thenReturn(Optional.of(userRole));
+            when(jwtUtils.generateJwtToken(any(Authentication.class), anyInt())).thenReturn("jwt-token");
+
+            ResponseEntity<?> response = authController.phoneSignup(phoneRequest("good-token", "asha@example.com"));
+
+            assertEquals(HttpStatus.OK, response.getStatusCode());
+            JwtResponse body = (JwtResponse) response.getBody();
+            assertNotNull(body);
+            assertEquals("jwt-token", body.getAccessToken());
+            assertEquals("asha@example.com", body.getEmail());
+            verify(userRepository).save(any(User.class));
+        }
+
+        @Test
+        @DisplayName("phone-signup allows skipping the address step")
+        void testPhoneSignup_SkipAddress() {
+            when(jwtUtils.getPhoneFromVerificationToken("good-token")).thenReturn("9876543210");
+            when(jwtUtils.getEmailFromVerificationToken("email-proof")).thenReturn("asha@example.com");
+            when(userRepository.existsByUsername("9876543210")).thenReturn(false);
+            when(userRepository.findByPhone("9876543210")).thenReturn(Optional.empty());
+            when(userRepository.existsByEmail("asha@example.com")).thenReturn(false);
+            when(passwordEncoder.encode(anyString())).thenReturn("random-hash");
+            when(roleRepository.findByName(ERole.ROLE_USER)).thenReturn(Optional.of(userRole));
+            when(jwtUtils.generateJwtToken(any(Authentication.class), anyInt())).thenReturn("jwt-token");
+
+            PhoneSignupRequest request = phoneRequest("good-token", "asha@example.com");
+            request.setAddress("");
+            request.setExtendedAddr("");
+            request.setCity("");
+            request.setState("");
+            request.setZip("");
+            request.setCountry("");
+
+            ResponseEntity<?> response = authController.phoneSignup(request);
+
+            assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals("asha@example.com", ((JwtResponse) response.getBody()).getEmail());
+            // Optional address: nothing is persisted in the address book.
+            verify(userAddressRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("google-signup rejects an invalid signup token before touching Google")
+        void testGoogleSignup_InvalidToken() {
+            when(jwtUtils.getPhoneFromVerificationToken("bad-token"))
+                    .thenThrow(new IllegalArgumentException("bad token"));
+
+            GoogleSignupRequest request = new GoogleSignupRequest();
+            request.setSignupToken("bad-token");
+            request.setIdToken("irrelevant");
+            request.setAddress("12 MG Road");
+            request.setCity("Bengaluru");
+            request.setState("Karnataka");
+            request.setZip("560001");
+            request.setCountry("IN");
+
+            ResponseEntity<?> response = authController.googleSignup(request);
+
+            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+            assertTrue(((MessageResponse) response.getBody()).getMessage().contains("Phone verification expired"));
+            verify(userRepository, never()).save(any(User.class));
         }
     }
 }

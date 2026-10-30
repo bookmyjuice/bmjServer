@@ -26,6 +26,8 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             "/api/auth/signup",
             "/api/auth/login-otp",
             "/api/auth/send-otp",
+            "/api/auth/phone-signup",
+            "/api/auth/google-signup",
             "/api/auth/reset-password-mobile",
             "/api/auth/reset-password-email"
     };

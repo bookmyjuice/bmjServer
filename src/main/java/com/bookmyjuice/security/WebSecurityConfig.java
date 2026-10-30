@@ -89,6 +89,7 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
             .requestMatchers("/api/auth/**", "/api/v1/auth/**").permitAll()
             .requestMatchers("/api/health").permitAll()
             .requestMatchers("/api/subscriptions/pricing/**").permitAll()
+            .requestMatchers("/api/catalog/**", "/api/v1/catalog/**").permitAll()
             .requestMatchers("/api/test/**").permitAll()
             // Require auth only for /api/ routes (known routes are authenticated, unknown /api/ routes return 401)
             .requestMatchers("/api/**").authenticated()

@@ -104,4 +104,34 @@ class JwtUtilsTest {
 
         assertEquals("testuser", username);
     }
+
+    @Test
+    @DisplayName("A-1: signup token round-trips the verified phone")
+    void testPhoneVerificationToken_RoundTrip() {
+        String token = jwtUtils.generatePhoneVerificationToken("9876543210");
+
+        assertEquals("9876543210", jwtUtils.getPhoneFromVerificationToken(token));
+    }
+
+    @Test
+    @DisplayName("A-1: an access token is not accepted as a signup token")
+    void testPhoneVerificationToken_RejectsAccessToken() {
+        Authentication authentication = mock(Authentication.class);
+        UserDetailsImpl userDetails = new UserDetailsImpl(
+                1L, "9876543210", "a@example.com", "password",
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER")));
+        when(authentication.getPrincipal()).thenReturn(userDetails);
+
+        String accessToken = jwtUtils.generateJwtToken(authentication, 1);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> jwtUtils.getPhoneFromVerificationToken(accessToken));
+    }
+
+    @Test
+    @DisplayName("A-1: a malformed signup token is rejected")
+    void testPhoneVerificationToken_RejectsGarbage() {
+        assertThrows(Exception.class,
+                () -> jwtUtils.getPhoneFromVerificationToken("not-a-jwt"));
+    }
 }

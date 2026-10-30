@@ -27,6 +27,25 @@ import com.bookmyjuice.services.UserDetailsImpl;
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/test")
+/**
+ * NON-PRODUCTION diagnostics controller (V1 launch freeze).
+ *
+ * <p>Everything under {@code /api/test/**} is a development / diagnostics surface. It
+ * is {@code permitAll} in {@code WebSecurityConfig} and must never carry
+ * customer-facing traffic.
+ *
+ * <p>Production replacements for the routes this controller used to serve:
+ * <ul>
+ *   <li>{@code GET /api/test/charge-items} &rarr;
+ *       {@code GET /api/v1/catalog/charge-items} ({@link CatalogController})</li>
+ *   <li>{@code GET /api/test/user} &rarr;
+ *       {@code GET /api/v1/user/profile} ({@link UserProfileController})</li>
+ * </ul>
+ *
+ * @deprecated Non-production surface. No V1 customer-facing flow may depend on it.
+ *     See docs/API.md (Non-Production Endpoints) and docs/BMJ_V1_SCOPE.md.
+ */
+@Deprecated(since = "2026-10-15")
 public class TestController {
 
     @Autowired
