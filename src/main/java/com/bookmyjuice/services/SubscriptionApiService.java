@@ -36,17 +36,38 @@ public class SubscriptionApiService {
     @Autowired
     private ItemPriceRepository itemPriceRepository;
 
+    @Autowired
+    private DeliveryScheduleService deliveryScheduleService;
+
+
     /**
      * Create a subscription hosted page for the customer to purchase a plan
      */
     public HostedPage createSubscriptionHostedPage(String customerId, String planId) throws Exception {
+        return createSubscriptionHostedPage(customerId, planId, null);
+    }
+
+    /**
+     * Same as {@link #createSubscriptionHostedPage(String, String)} but forces
+     * the Chargebee subscription id.
+     *
+     * <p>
+     * The id is reserved by the checkout service so the day-wise delivery
+     * schedule can be stored before the customer pays. Chargebee's
+     * {@code checkout_new_for_items} accepts {@code subscription[id]} but not
+     * {@code subscription[meta_data]}, so the reserved id is the join key
+     * between the stored schedule and the subscription_created webhook.
+     * </p>
+     */
+    public HostedPage createSubscriptionHostedPage(String customerId, String planId, String reservedSubscriptionId)
+            throws Exception {
         logger.info("Creating subscription hosted page for customer: {} to plan: {}", customerId, planId);
 
         try {
-            Result result = HostedPage.checkoutNew()
-                    .customerId(customerId)
-                    .subscriptionPlanId(planId)
-                    .request();
+            HostedPage.CheckoutNewForItemsRequest request = buildHostedPageRequest(customerId, planId,
+                    reservedSubscriptionId);
+
+            Result result = request.request();
 
             HostedPage hostedPage = result.hostedPage();
             logger.info("Subscription hosted page created successfully: {}", hostedPage.id());
@@ -56,6 +77,39 @@ public class SubscriptionApiService {
             logger.error("Error creating subscription hosted page: {}", e.getMessage(), e);
             throw new Exception("Failed to create subscription hosted page: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Builds the Product Catalog 2.0 hosted-page request for a new subscription.
+     *
+     * <p>
+     * The catalog 1.0 call ({@code HostedPage.checkoutNew()} with
+     * {@code subscription[plan_id]}) is rejected on this site with "API endpoint
+     * is incompatible with the product catalog version", so the plan is passed
+     * the 2.0 way: as the {@code item_price_id} of the subscription's single
+     * item. Everything else is unchanged — the pre-reserved subscription id
+     * still travels as {@code subscription[id]}, which is what lets the
+     * delivery schedule stored before payment be joined to the
+     * {@code subscription_created} webhook.
+     * </p>
+     *
+     * @param customerId             Chargebee customer the subscription belongs to
+     * @param planId                 item price id of the plan, e.g.
+     *                               {@code bmj-delight-mix-punch-200ml-weekly}
+     * @param reservedSubscriptionId pre-reserved Chargebee subscription id, may be null
+     * @return the un-sent request, so callers (and tests) can inspect its params
+     */
+    HostedPage.CheckoutNewForItemsRequest buildHostedPageRequest(String customerId, String planId,
+            String reservedSubscriptionId) {
+        HostedPage.CheckoutNewForItemsRequest request = HostedPage.checkoutNewForItems()
+                .customerId(customerId)
+                .subscriptionItemItemPriceId(0, planId);
+
+        if (reservedSubscriptionId != null && !reservedSubscriptionId.isEmpty()) {
+            request.subscriptionId(reservedSubscriptionId);
+        }
+
+        return request;
     }
 
     /**
@@ -162,26 +216,21 @@ public class SubscriptionApiService {
         return plans;
     }
 
-    /**
-     * Get pricing page URL for customer
+    /*
+     * Retired: the plan-less pricing page is a catalog 1.0 concept.
+     *
+     * <p>
+     * {@code HostedPage.checkoutNew()} without items only exists for catalog
+     * 1.0; its catalog 2.0 replacement, {@code checkout_new_for_items}, requires
+     * at least one {@code item_price_id}, so there is nothing to migrate this
+     * call to. The product surface no longer uses a hosted pricing page at all:
+     * plan browsing comes from {@link #getAllPlans()} and the app's native
+     * plan-selection screen, and the old route
+     * ({@code PricingPageController}) answers {@code 410 Gone}. The method was
+     * therefore removed rather than left as a call that can only fail with
+     * "API endpoint is incompatible with the product catalog version".
+     * </p>
      */
-    public String getPricingPageUrl(String customerId) throws Exception {
-        logger.info("Getting pricing page URL for customer: {}", customerId);
-
-        try {
-            Result result = HostedPage.checkoutNew()
-                    .customerId(customerId)
-                    .request();
-
-            HostedPage hostedPage = result.hostedPage();
-            logger.info("Pricing page retrieved: {}", hostedPage.url());
-
-            return hostedPage.url();
-        } catch (Exception e) {
-            logger.error("Error getting pricing page: {}", e.getMessage(), e);
-            throw new Exception("Failed to get pricing page: " + e.getMessage(), e);
-        }
-    }
 
     /**
      * Pause a subscription (scheduled at end of current term)
@@ -343,6 +392,16 @@ public class SubscriptionApiService {
         map.put("nextBillingAt", subscription.nextBillingAt());
         map.put("createdAt", subscription.createdAt());
         map.put("updatedAt", subscription.updatedAt());
+        // Delivery date is only published from a schedule the customer actually
+        // submitted at checkout; nothing is inferred from the billing cycle.
+        Integer startedAt = subscription.startedAt() != null
+                ? (int) (subscription.startedAt().getTime() / 1000L)
+                : 0;
+        map.put("startedAt", startedAt);
+        map.put("nextDeliveryAt", deliveryScheduleService.nextDeliveryAt(
+                subscription.id(), startedAt,
+                subscription.status() != null ? subscription.status().toString() : null));
+        map.put("deliverySchedule", deliveryScheduleService.scheduleFor(subscription.id()));
         return map;
     }
 }

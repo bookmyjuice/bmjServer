@@ -22,6 +22,23 @@ import com.chargebee.models.HostedPage;
 
 @Controller
 @RequestMapping("api/test")
+/**
+ * NON-PRODUCTION checkout diagnostics controller (V1 launch freeze).
+ *
+ * <p>Everything under {@code /api/test/**} is a development / diagnostics surface. It
+ * is {@code permitAll} in {@code WebSecurityConfig} and must never carry
+ * customer-facing traffic.
+ *
+ * <p>Note: {@code POST /api/test/cartCheckout} passes the local user id where
+ * Chargebee expects a customer id, so it cannot complete a real checkout.
+ *
+ * <p>Production replacement: {@code POST /api/v2/checkout/with-items}
+ * ({@link CheckoutV2Controller}), which resolves the Chargebee customer id.
+ *
+ * @deprecated Non-production surface. No V1 customer-facing flow may depend on it.
+ *     See docs/API.md (Non-Production Endpoints) and docs/BMJ_V1_SCOPE.md.
+ */
+@Deprecated(since = "2026-10-15")
 public class CheckoutController {
 
     @Autowired

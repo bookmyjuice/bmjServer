@@ -37,6 +37,9 @@ public class SubscriptionCheckoutService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private DeliveryScheduleService deliveryScheduleService;
+
     /**
      * Creates a Chargebee Hosted Page URL for subscription checkout.
      * The user's cart must contain only 'plan' type items (no mixed carts).
@@ -90,31 +93,31 @@ public class SubscriptionCheckoutService {
         }
 
         try {
-            // Build the checkout request
-            // Note: Chargebee's subscription checkout uses different parameters than
-            // one-time checkout
-            HostedPage.CheckoutNewRequest request = HostedPage.checkoutNew()
-                    .customerId(chargebeeCustomerId)
-                    .subscriptionPlanId(planId);
+            // Build the checkout request.
+            // Catalog 2.0: the plan is carried as the item price of the
+            // subscription's single item. The catalog 1.0 form
+            // (subscription[plan_id]) is rejected by this site with
+            // "API endpoint is incompatible with the product catalog version".
+            HostedPage.CheckoutNewForItemsRequest request = buildHostedPageRequest(chargebeeCustomerId, planId);
 
-            // Add subscription quantity if greater than 1
-            // Note: Chargebee Java SDK v3.29.0 CheckoutNewRequest does not expose
-            // subscriptionQuantity(). Use addons or custom fields for quantity > 1.
-            if (quantity != null && quantity > 1) {
-                logger.debug("Subscription quantity > 1 ({}) — quantity handled via Chargebee configuration", quantity);
-            }
+            // Quantity > 1 on a plan item is not part of the V1 contract and was
+            // never sent before this migration either — the cart row's quantity
+            // is deliberately still ignored, so the amount the customer is
+            // charged does not change as a side effect of switching endpoints.
+            // Catalog 2.0 can express it (subscriptionItemQuantity(0, quantity))
+            // if the product ever decides plans are multi-quantity.
             logger.debug("Subscription quantity: {}", quantity);
 
-            // Add schedule as metadata if provided
-            if (schedule != null && !schedule.isEmpty()) {
-                try {
-                    String scheduleJson = convertScheduleToMetadata(schedule);
-                    logger.debug("Delivery schedule metadata prepared: {}", scheduleJson);
-                } catch (Exception e) {
-                    logger.warn("Failed to serialize schedule to JSON: {}", e.getMessage());
-                }
+            // Persist the day-wise schedule under a subscription id reserved
+            // here, and hand that id to Chargebee. checkout_new_for_items
+            // accepts subscription[id] but not subscription[meta_data], so
+            // reserving the id is what lets the subscription_created webhook
+            // join the schedule back to the subscription without guessing.
+            String reservedSubscriptionId = deliveryScheduleService.reserve(chargebeeCustomerId, schedule);
+            if (reservedSubscriptionId != null) {
+                request.subscriptionId(reservedSubscriptionId);
+                logger.info("Reserved subscription id {} for the delivery schedule", reservedSubscriptionId);
             }
-            logger.debug("Delivery schedule: {}", schedule);
 
             // Execute the request and get hosted page
             Result result = request.request();
@@ -127,6 +130,9 @@ public class SubscriptionCheckoutService {
             response.put("hosted_page_id", hostedPage.id());
             response.put("url", hostedPage.url());
             response.put("cart_id", cart.getId());
+            if (reservedSubscriptionId != null) {
+                response.put("subscription_id", reservedSubscriptionId);
+            }
             response.put("plan_id", planId);
             response.put("plan_name", plan.getProduct() != null ? plan.getProduct().getName() : "Unknown");
             response.put("expires_at", hostedPage.expiresAt());
@@ -167,19 +173,18 @@ public class SubscriptionCheckoutService {
         }
 
         try {
-            // Build the checkout request
-            HostedPage.CheckoutNewRequest request = HostedPage.checkoutNew()
-                    .customerId(chargebeeCustomerId)
-                    .subscriptionPlanId(planId);
+            // Build the checkout request.
+            // Catalog 2.0: the plan is an item price, not subscription[plan_id]
+            // (catalog 1.0), which this site rejects outright.
+            HostedPage.CheckoutNewForItemsRequest request = buildHostedPageRequest(chargebeeCustomerId, planId);
 
-            // Add schedule as metadata if provided
-            if (schedule != null && !schedule.isEmpty()) {
-                try {
-                    String scheduleJson = convertScheduleToMetadata(schedule);
-                    logger.debug("Direct subscription delivery schedule metadata: {}", scheduleJson);
-                } catch (Exception e) {
-                    logger.warn("Failed to serialize schedule to JSON: {}", e.getMessage());
-                }
+            // Same reservation as the cart flow: the schedule is persisted first
+            // and the reserved id is passed to Chargebee so the webhook can join
+            // the two records deterministically.
+            String reservedSubscriptionId = deliveryScheduleService.reserve(chargebeeCustomerId, schedule);
+            if (reservedSubscriptionId != null) {
+                request.subscriptionId(reservedSubscriptionId);
+                logger.info("Reserved subscription id {} for the direct delivery schedule", reservedSubscriptionId);
             }
 
             // Execute the request and get hosted page
@@ -195,6 +200,9 @@ public class SubscriptionCheckoutService {
             response.put("plan_id", planId);
             response.put("plan_name", plan.getProduct() != null ? plan.getProduct().getName() : "Unknown");
             response.put("expires_at", hostedPage.expiresAt());
+            if (reservedSubscriptionId != null) {
+                response.put("subscription_id", reservedSubscriptionId);
+            }
 
             return response;
 
@@ -205,27 +213,24 @@ public class SubscriptionCheckoutService {
     }
 
     /**
-     * Converts the day-wise schedule map to a JSON metadata string.
-     * Example: { "Monday": true, "Wednesday": true } ->
-     * "{\"Monday\":true,\"Wednesday\":true}"
+     * Builds the Product Catalog 2.0 hosted-page request for a new subscription.
+     *
+     * <p>
+     * Both subscription flows (cart and direct) go through here so the plan is
+     * always sent the catalog 2.0 way — as the {@code item_price_id} of the
+     * subscription's single item — instead of the retired catalog 1.0
+     * {@code subscription[plan_id]}. The reserved subscription id is added by
+     * the caller through {@code subscription[id]}.
+     * </p>
+     *
+     * @param chargebeeCustomerId Chargebee customer the subscription belongs to
+     * @param planId              item price id of the plan, e.g.
+     *                            {@code bmj-delight-mix-punch-200ml-monthly}
+     * @return the un-sent request, so callers (and tests) can inspect its params
      */
-    private String convertScheduleToMetadata(Map<String, Boolean> schedule) {
-        try {
-            // Simple JSON conversion without external library
-            StringBuilder json = new StringBuilder("{");
-            boolean first = true;
-            for (Map.Entry<String, Boolean> entry : schedule.entrySet()) {
-                if (!first) {
-                    json.append(",");
-                }
-                json.append("\"").append(entry.getKey()).append("\":").append(entry.getValue());
-                first = false;
-            }
-            json.append("}");
-            return json.toString();
-        } catch (Exception e) {
-            logger.error("Error converting schedule to metadata: {}", e.getMessage());
-            return "{}";
-        }
+    HostedPage.CheckoutNewForItemsRequest buildHostedPageRequest(String chargebeeCustomerId, String planId) {
+        return HostedPage.checkoutNewForItems()
+                .customerId(chargebeeCustomerId)
+                .subscriptionItemItemPriceId(0, planId);
     }
 }

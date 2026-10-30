@@ -29,6 +29,7 @@ import com.bookmyjuice.models.entities.SubscriptionEntity;
 import com.bookmyjuice.repository.CustomerRepository;
 import com.bookmyjuice.repository.SubscriptionEntityRepository;
 import com.bookmyjuice.repository.UserRepository;
+import com.bookmyjuice.services.DeliveryScheduleService;
 import com.bookmyjuice.services.SubscriptionApiService;
 import com.bookmyjuice.services.SubscriptionBusinessRulesService;
 import com.bookmyjuice.services.UserDetailsImpl;
@@ -56,6 +57,10 @@ public class SubscriptionController {
 
     @Autowired
     private SubscriptionBusinessRulesService businessRulesService;
+    @Autowired
+    private DeliveryScheduleService deliveryScheduleService;
+
+
 
     @Autowired
     private UserRepository userRepository;
@@ -120,10 +125,18 @@ public class SubscriptionController {
 
     /**
      * Create a new subscription (returns hosted page URL)
+     *
+     * <p>
+     * The request body may carry the customer's day-wise delivery schedule,
+     * e.g. {@code {"planId":"...","schedule":{"monday":"mix-punch"}}}. The
+     * schedule is persisted before the hosted page is created and the reserved
+     * subscription id is handed to Chargebee, so the delivered subscription can
+     * publish a real {@code nextDeliveryAt}.
+     * </p>
      */
     @PostMapping("/create")
     @PreAuthorize("hasRole('USER') or hasRole('MODERATOR') or hasRole('ADMIN')")
-    public ResponseEntity<?> createSubscription(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> createSubscription(@RequestBody Map<String, Object> request) {
         try {
             String customerId = getCustomerIdFromSecurityContext();
             if (customerId == null) {
@@ -131,19 +144,34 @@ public class SubscriptionController {
                         .body(Map.of("error", "User not authenticated"));
             }
 
-            String planId = request.get("planId");
+            Object planIdValue = request.get("planId");
+            String planId = planIdValue != null ? planIdValue.toString() : null;
             if (planId == null || planId.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(Map.of("error", "planId is required"));
             }
 
-            HostedPage hostedPage = subscriptionApiService.createSubscriptionHostedPage(customerId, planId);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> schedule = request.get("schedule") instanceof Map
+                    ? (Map<String, Object>) request.get("schedule")
+                    : null;
 
-            return ResponseEntity.ok(Map.of(
-                    "status", "success",
-                    "message", "Hosted page created successfully",
-                    "hostedPageId", hostedPage.id(),
-                    "url", hostedPage.url()));
+            // Written before checkout: if the schedule cannot be stored, no
+            // delivery date may be promised later, so fall back to no id.
+            String reservedSubscriptionId = deliveryScheduleService.reserve(customerId, schedule);
+
+            HostedPage hostedPage = subscriptionApiService.createSubscriptionHostedPage(customerId, planId,
+                    reservedSubscriptionId);
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("status", "success");
+            body.put("message", "Hosted page created successfully");
+            body.put("hostedPageId", hostedPage.id());
+            body.put("url", hostedPage.url());
+            if (reservedSubscriptionId != null) {
+                body.put("subscriptionId", reservedSubscriptionId);
+            }
+            return ResponseEntity.ok(body);
         } catch (Exception e) {
             logger.error("Error creating subscription: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -246,9 +274,25 @@ public class SubscriptionController {
     }
 
     /**
+     * Backward-compatible alias for {@link #cancelSubscription(String)}.
+     *
+     * The V1 Flutter client calls PUT /api/subscriptions/{id}/cancel, while the
+     * canonical REST verb is DELETE /api/subscriptions/{id}. Both routes execute
+     * the exact same cancel operation (same Chargebee call, same 9 PM IST cutoff
+     * rule, same response shape) so client and server contracts match.
+     *
+     * This is plumbing only - no new business logic.
+     */
+    @PutMapping("/{subscriptionId}/cancel")
+    @PreAuthorize("hasRole('USER') or hasRole('MODERATOR') or hasRole('ADMIN')")
+    public ResponseEntity<?> cancelSubscriptionViaPut(@PathVariable String subscriptionId) {
+        return cancelSubscription(subscriptionId);
+    }
+
+    /**
      * Get all available subscription plans
      */
-    @GetMapping("/pricing/plans")
+    @GetMapping({"/pricing/plans", "/pricing-plans"})
     public ResponseEntity<?> getAllPlans() {
         try {
             List<Map<String, Object>> plans = subscriptionApiService.getAllPlans();
@@ -281,6 +325,12 @@ public class SubscriptionController {
         map.put("createdAt", subscription.getCreatedAt());
         map.put("updatedAt", subscription.getUpdatedAt());
         map.put("items", subscription.getItems());
+        // Published only from the day-wise schedule the customer submitted at
+        // checkout (persisted in delivery_schedule). No schedule, no date: the
+        // client renders an em dash. Nothing is derived from nextBillingAt.
+        map.put("nextDeliveryAt", deliveryScheduleService.nextDeliveryAt(
+                subscription.getId(), subscription.getStartedAt(), subscription.getStatus()));
+        map.put("deliverySchedule", deliveryScheduleService.scheduleFor(subscription.getId()));
         // map.put("status", subscription.getStatus());
         return map;
     }
