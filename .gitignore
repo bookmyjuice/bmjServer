@@ -31,3 +31,22 @@ build/
 .vscode/
 # Environment files (keep secrets out of git)
 .env
+
+# ============ Runtime output (added 2026-10-16 — blocker I5 / B1) ============
+# 30 runtime logs were committed because the intended rules lived in
+# `Java.gitignore` — a filename git never reads. The rules are merged here and
+# that decoy file was deleted in the same commit.
+logs/
+*.log
+hs_err_pid*
+replay_pid*
+
+# ============ Build output ============
+# 61 MB fat jar at the repository root. The Dockerfile builds its own copy from
+# target/*.jar (`COPY --from=builder /app/target/*.jar app.jar`), so the
+# committed binary was pure churn. It is untracked, NOT deleted from disk.
+# NOTE: never add a bare `*.jar` rule here — it would override the
+# `!.mvn/wrapper/maven-wrapper.jar` negation on line 3 and break `mvnw` on a
+# fresh clone.
+/app.jar
+
