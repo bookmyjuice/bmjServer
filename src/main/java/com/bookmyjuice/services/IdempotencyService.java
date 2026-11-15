@@ -153,6 +153,26 @@ public class IdempotencyService {
     }
 
     /**
+     * Move an event that exhausted its retries to DEAD_LETTER.
+     *
+     * <p>Dead-lettered events are retained (the cleanup job only deletes COMPLETED rows) so
+     * they remain visible to operators instead of silently disappearing.
+     *
+     * @param eventId The event ID that exhausted its retries
+     * @param error   The last error observed
+     */
+    @Transactional
+    public void markEventDeadLettered(String eventId, String error) {
+        int updated = webhookEventRepo.markEventDeadLetter(eventId, error, LocalDateTime.now());
+        if (updated > 0) {
+            processedEvents.remove(eventId);
+            logger.error("Event dead-lettered after exhausting retries: {} - {}", eventId, error);
+        } else {
+            logger.warn("Failed to dead-letter event: {}", eventId);
+        }
+    }
+
+    /**
      * Check if event is processed and mark it as processed if not (legacy method
      * for compatibility)
      * 

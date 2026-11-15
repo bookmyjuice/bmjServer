@@ -56,6 +56,19 @@ public interface WebhookEventRepository extends JpaRepository<WebhookEvent, Stri
             @Param("processedAt") LocalDateTime processedAt);
 
     /**
+     * Mark an event that exhausted its retries as dead lettered.
+     *
+     * <p>Dead-lettered rows are never removed by the cleanup job (which only deletes
+     * COMPLETED rows), so they survive as an operator-facing record of an event that the
+     * system could not apply.
+     */
+    @Modifying
+    @Transactional
+    @Query("UPDATE WebhookEvent we SET we.processingStatus = 'DEAD_LETTER', we.lastError = :error, we.processedAt = :processedAt WHERE we.eventId = :eventId")
+    int markEventDeadLetter(@Param("eventId") String eventId, @Param("error") String error,
+            @Param("processedAt") LocalDateTime processedAt);
+
+    /**
      * Find events that need retry (failed and retry count < 3)
      */
     @Query("SELECT we FROM WebhookEvent we WHERE we.processingStatus = 'FAILED' AND we.retryCount < 3")
