@@ -23,12 +23,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.bookmyjuice.models.User;
+import com.bookmyjuice.models.dto.CustomerIdentity;
 import com.bookmyjuice.models.entities.CustomerEntity;
 import com.bookmyjuice.models.entities.SubscriptionEntity;
 import com.bookmyjuice.repository.CustomerRepository;
 import com.bookmyjuice.repository.SubscriptionEntityRepository;
 import com.bookmyjuice.repository.UserRepository;
+import com.bookmyjuice.services.CustomerIdentityResolver;
 import com.bookmyjuice.services.DeliveryScheduleService;
 import com.bookmyjuice.services.SubscriptionApiService;
 import com.bookmyjuice.services.SubscriptionBusinessRulesService;
@@ -65,6 +66,9 @@ public class SubscriptionController {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private CustomerIdentityResolver identityResolver;
+
     /**
      * Get all subscriptions for the current user
      */
@@ -72,18 +76,40 @@ public class SubscriptionController {
     @PreAuthorize("hasRole('USER') or hasRole('MODERATOR') or hasRole('ADMIN')")
     public ResponseEntity<?> getMySubscriptions() {
         try {
-            String customerId = getCustomerIdFromSecurityContext();
-            if (customerId == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "User not authenticated"));
+            CustomerIdentity identity = resolveIdentity();
+            if (!identity.isResolved()) {
+                return identityProblem(identity);
             }
 
-            Optional<CustomerEntity> customer = customerRepository.findById(customerId);
-            List<SubscriptionEntity> subscriptions = customer.isPresent()
-                    ? subscriptionRepository.findByCustomer(customer.get())
-                    : List.of();
+            Optional<CustomerEntity> customer = customerRepository.findById(identity.getCustomerId());
+            if (customer.isEmpty()) {
+                return identityProblem(CustomerIdentity.broken(identity.getUserId(),
+                        "customer_row_missing:" + identity.getCustomerId()));
+            }
+
+            List<SubscriptionEntity> subscriptions = subscriptionRepository.findByCustomerGuarded(customer.get());
 
             if (subscriptions.isEmpty()) {
+                // Transitional protection (Phase 1 of the sync roadmap).
+                // The identity resolved, but this user's rows may be stored under a different
+                // customer key (the legacy numeric twin). Report that honestly rather than
+                // claiming the customer has no subscription.
+                List<SubscriptionEntity> underAnotherKey =
+                        subscriptionRepository.findByCustomerIdValue(String.valueOf(identity.getUserId()));
+                if (!underAnotherKey.isEmpty()) {
+                    logger.error(
+                            "Subscription identity mismatch for local user {}: linked to '{}' but {} row(s) exist under key '{}'",
+                            identity.getUserId(), identity.getCustomerId(),
+                            underAnotherKey.size(), identity.getUserId());
+                    Map<String, Object> mismatch = new HashMap<>();
+                    mismatch.put("status", "error");
+                    mismatch.put("error", "subscription_unavailable");
+                    mismatch.put("reason", "identity_mismatch");
+                    mismatch.put("message",
+                            "Subscriptions exist for this account under a different customer key; "
+                                    + "the billing link needs repair.");
+                    return ResponseEntity.status(HttpStatus.CONFLICT).body(mismatch);
+                }
                 return ResponseEntity.ok(Map.of(
                         "status", "success",
                         "message", "No subscriptions found",
@@ -336,31 +362,41 @@ public class SubscriptionController {
     }
 
     /**
-     * Extract the Chargebee customer ID from security context.
-     * Looks up the User entity by local DB ID, then returns the chargebeeCustomerId field.
-     * This ensures we send the Chargebee customer ID (e.g. "cbdemo_xxxxx") to Chargebee APIs,
-     * not the local database auto-increment ID.
+     * Resolve the caller's Chargebee identity without collapsing a failure to {@code null}.
+     * Returns an explicit outcome so the read path can answer honestly (409) instead of
+     * returning an empty list for an unresolved account.
      */
-    private String getCustomerIdFromSecurityContext() {
+    private CustomerIdentity resolveIdentity() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof UserDetailsImpl) {
-            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-            Long localId = userDetails.getId();
-            // Look up the full User entity to get the Chargebee customer ID
-            User user = userRepository.findById(localId).orElse(null);
-            if (user != null && user.getChargebeeCustomerId() != null && !user.getChargebeeCustomerId().isEmpty()) {
-                logger.debug("Resolved Chargebee customer ID: {} for local user: {}", user.getChargebeeCustomerId(), localId);
-                return user.getChargebeeCustomerId();
-            }
-            // Fallback: try CustomerEntity lookup by localId.toString() as customer_id
-            Optional<CustomerEntity> customer = customerRepository.findById(localId.toString());
-            if (customer.isPresent()) {
-                logger.warn("Fallback to CustomerEntity lookup for local user: {}", localId);
-                return customer.get().getId();
-            }
-            logger.error("No Chargebee customer ID found for local user: {}", localId);
-            return null;
+        if (authentication != null && authentication.getPrincipal() instanceof UserDetailsImpl details) {
+            return identityResolver.resolve(details);
         }
+        return CustomerIdentity.broken(null, "unauthenticated");
+    }
+
+    /** 409 with a machine-readable reason — never a false empty list. */
+    private ResponseEntity<?> identityProblem(CustomerIdentity identity) {
+        boolean unlinked = identity.getStatus() == CustomerIdentity.Status.UNLINKED;
+        Map<String, Object> body = new HashMap<>();
+        body.put("status", "error");
+        body.put("error", unlinked ? "identity_unlinked" : "identity_broken");
+        body.put("detail", identity.getDetail());
+        body.put("message", unlinked
+                ? "This account is not linked to a billing customer yet."
+                : "This account's billing link is inconsistent and needs repair.");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    private String getCustomerIdFromSecurityContext() {
+        CustomerIdentity identity = resolveIdentity();
+        if (identity.isResolved()) {
+            logger.debug("Resolved Chargebee customer ID: {} for local user: {}",
+                    identity.getCustomerId(), identity.getUserId());
+            return identity.getCustomerId();
+        }
+        logger.error("Customer identity not resolved for local user {}: {} ({})",
+                identity.getUserId(), identity.getStatus(), identity.getDetail());
         return null;
     }
 }
+
