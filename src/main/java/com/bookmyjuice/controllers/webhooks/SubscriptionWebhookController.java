@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.bookmyjuice.services.IdempotencyService;
 import com.bookmyjuice.services.SubscriptionService;
 import com.bookmyjuice.services.WebhookEventProcessor;
+import com.bookmyjuice.services.WebhookIdentityHook;
 import com.chargebee.models.Event;
 
 @RestController
@@ -31,6 +32,9 @@ public class SubscriptionWebhookController {
 
     @Autowired
     private IdempotencyService idempotencyService;
+
+    @Autowired
+    private WebhookIdentityHook identityHook;
 
     @PostMapping("/subscriptions")
     @ResponseBody
@@ -68,6 +72,9 @@ public class SubscriptionWebhookController {
                 // Mark as completed if successful
                 if (result.getStatusCode().is2xxSuccessful()) {
                     idempotencyService.markEventCompleted(eventId);
+                    // Identity linking runs after the mirror write, outside its transaction:
+                    // a linking failure must never roll back billing data.
+                    identityHook.afterMirroring(event);
                 } else {
                     idempotencyService.markEventFailed(eventId,
                             "Processing failed with status: " + result.getStatusCode());

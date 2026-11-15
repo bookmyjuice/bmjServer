@@ -86,6 +86,11 @@ public class IdentityLinker {
             return outcome == Outcome.LINKED || outcome == Outcome.ALREADY_LINKED;
         }
 
+        /** Test-only factory: lets unit tests build a result without a database. */
+        static LinkResult forTesting(Outcome outcome, Long userId, String customerId) {
+            return new LinkResult(outcome, userId, customerId, null);
+        }
+
         @Override
         public String toString() {
             return "LinkResult{" + outcome + ", userId=" + userId + ", customerId=" + customerId
