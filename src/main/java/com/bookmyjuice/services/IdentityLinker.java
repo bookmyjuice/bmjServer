@@ -1,6 +1,7 @@
 package com.bookmyjuice.services;
 
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -227,6 +228,128 @@ public class IdentityLinker {
             }
         }
         return candidates;
+    }
+
+    /**
+     * Self-heal the link for one BMJ user, in the user → customer direction.
+     *
+     * <p>This is the login path: {@link #link(String)} is driven by a webhook and knows the
+     * customer; here we start from the user and look for the customer row that describes
+     * them. It is safe to call on every login:
+     * <ul>
+     *   <li>a user whose link is present and valid is left untouched (ALREADY_LINKED);</li>
+     *   <li>a missing or dangling link is repaired from the customer mirror;</li>
+     *   <li>ambiguity is refused, never guessed (AMBIGUOUS).</li>
+     * </ul>
+     *
+     * @param userId BMJ user id
+     * @return the outcome; never {@code null}
+     */
+    @Transactional
+    public LinkResult linkUser(Long userId) {
+        if (userId == null) {
+            return new LinkResult(Outcome.REJECTED, null, null, "missing_user_id");
+        }
+
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            logger.warn("Identity self-heal rejected: no user row for id {}", userId);
+            return new LinkResult(Outcome.REJECTED, userId, null, "user_row_missing");
+        }
+
+        String current = user.getChargebeeCustomerId();
+        if (current != null && !current.isBlank() && customerRepository.findById(current).isPresent()) {
+            return new LinkResult(Outcome.ALREADY_LINKED, user.getId(), current, null);
+        }
+        if (current != null && !current.isBlank()) {
+            logger.warn("Identity self-heal: user {} has a dangling link '{}' - re-deriving",
+                    userId, current);
+        }
+
+        CustomerMatch match = matchCustomerByPhone(user.getUsername());
+        if (match.ambiguous) {
+            logger.error("Identity self-heal ambiguous on phone '{}' for user {}", user.getUsername(), userId);
+            return new LinkResult(Outcome.AMBIGUOUS, userId, null, "multiple_customers_match_phone");
+        }
+        if (match.customer == null) {
+            match = matchCustomerByEmail(user.getEmail());
+            if (match.ambiguous) {
+                logger.error("Identity self-heal ambiguous on email '{}' for user {}", user.getEmail(), userId);
+                return new LinkResult(Outcome.AMBIGUOUS, userId, null, "multiple_customers_match_email");
+            }
+        }
+
+        if (match.customer == null) {
+            return new LinkResult(Outcome.NO_USER_MATCH, userId, null, "no_customer_match");
+        }
+
+        user.setChargebeeCustomerId(match.customer.getId());
+        userRepository.save(user);
+        logger.info("Identity self-healed: user {} -> customer '{}' (matched by {})",
+                userId, match.customer.getId(), match.matchedBy);
+        return new LinkResult(Outcome.LINKED, userId, match.customer.getId(), match.matchedBy);
+    }
+
+    private CustomerMatch matchCustomerByPhone(String phone) {
+        if (phone == null || phone.isBlank()) {
+            return CustomerMatch.none();
+        }
+        for (String candidate : phoneCandidates(phone)) {
+            List<CustomerEntity> hits = customerRepository.findByPhone(candidate);
+            if (hits != null && !hits.isEmpty()) {
+                return pickCanonical(hits, "phone");
+            }
+        }
+        return CustomerMatch.none();
+    }
+
+    private CustomerMatch matchCustomerByEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return CustomerMatch.none();
+        }
+        List<CustomerEntity> hits = customerRepository.findByEmailIgnoreCase(email.trim());
+        if (hits == null || hits.isEmpty()) {
+            return CustomerMatch.none();
+        }
+        return pickCanonical(hits, "email");
+    }
+
+    /**
+     * Choose the canonical customer when several rows describe the same person.
+     *
+     * <p>Legacy data contains numeric-keyed twins ({@code "504"}) next to the real
+     * Chargebee ids ({@code "16CS3UVZQtF20nFJ"}). The Chargebee-shaped row is always the
+     * better choice: it is the one subscriptions and invoices are keyed by. If the choice
+     * is still not unique, we refuse.
+     */
+    private CustomerMatch pickCanonical(List<CustomerEntity> hits, String matchedBy) {
+        if (hits.size() == 1) {
+            return new CustomerMatch(hits.get(0), false, matchedBy);
+        }
+        List<CustomerEntity> nonNumeric = hits.stream()
+                .filter(c -> c.getId() != null && !c.getId().matches("^[0-9]+$"))
+                .toList();
+        if (nonNumeric.size() == 1) {
+            return new CustomerMatch(nonNumeric.get(0), false, matchedBy);
+        }
+        return new CustomerMatch(null, true, matchedBy);
+    }
+
+    /** Internal carrier for a customer match attempt. */
+    private static final class CustomerMatch {
+        private final CustomerEntity customer;
+        private final boolean ambiguous;
+        private final String matchedBy;
+
+        private CustomerMatch(CustomerEntity customer, boolean ambiguous, String matchedBy) {
+            this.customer = customer;
+            this.ambiguous = ambiguous;
+            this.matchedBy = matchedBy;
+        }
+
+        static CustomerMatch none() {
+            return new CustomerMatch(null, false, null);
+        }
     }
 
     /** Internal carrier for one match attempt. */

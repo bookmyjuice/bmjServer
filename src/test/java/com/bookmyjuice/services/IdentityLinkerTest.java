@@ -2,12 +2,15 @@ package com.bookmyjuice.services;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
@@ -195,6 +198,120 @@ class IdentityLinkerTest {
     @DisplayName("isLinked is false for a rejected attempt")
     void isLinkedSemantics() {
         assertFalse(linker.link(" ").isLinked());
+    }
+
+    // ---------------------------------------------------------------- linkUser (self-heal)
+
+    @Test
+    @DisplayName("self-heal: a valid existing link is left untouched")
+    void linkUserAlreadyLinked() {
+        when(userRepository.findById(500L)).thenReturn(Optional.of(user(500L, "cb1")));
+        when(customerRepository.findById("cb1")).thenReturn(Optional.of(customer("cb1", null, null)));
+
+        IdentityLinker.LinkResult result = linker.linkUser(500L);
+
+        assertEquals(IdentityLinker.Outcome.ALREADY_LINKED, result.getOutcome());
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("self-heal: a missing link is derived from the customer mirror by phone")
+    void linkUserDerivesFromPhone() {
+        User u = user(500L, null);
+        when(userRepository.findById(500L)).thenReturn(Optional.of(u));
+        when(customerRepository.findByPhone("9999999911"))
+                .thenReturn(List.of(customer("cb1", "9999999911", null)));
+        when(userRepository.save(any(User.class))).thenReturn(u);
+
+        IdentityLinker.LinkResult result = linker.linkUser(500L);
+
+        assertEquals(IdentityLinker.Outcome.LINKED, result.getOutcome());
+        assertEquals("cb1", u.getChargebeeCustomerId());
+        verify(userRepository).save(u);
+    }
+
+    @Test
+    @DisplayName("self-heal: a dangling link is re-derived")
+    void linkUserRepairsDanglingLink() {
+        User u = user(504L, "cb_gone");
+        when(userRepository.findById(504L)).thenReturn(Optional.of(u));
+        when(customerRepository.findById("cb_gone")).thenReturn(Optional.empty());
+        when(customerRepository.findByPhone("9999999911"))
+                .thenReturn(List.of(customer("cb_real", "9999999911", null)));
+        when(userRepository.save(any(User.class))).thenReturn(u);
+
+        IdentityLinker.LinkResult result = linker.linkUser(504L);
+
+        assertEquals(IdentityLinker.Outcome.LINKED, result.getOutcome());
+        assertEquals("cb_real", u.getChargebeeCustomerId());
+    }
+
+    @Test
+    @DisplayName("self-heal: with numeric and Chargebee twins, the Chargebee id wins")
+    void linkUserPrefersChargebeeShapedId() {
+        User u = user(504L, null);
+        when(userRepository.findById(504L)).thenReturn(Optional.of(u));
+        when(customerRepository.findByPhone("9999999911")).thenReturn(List.of(
+                customer("504", "9999999911", null),
+                customer("16CS3UVZQtF20nFJ", "9999999911", null)));
+        when(userRepository.save(any(User.class))).thenReturn(u);
+
+        IdentityLinker.LinkResult result = linker.linkUser(504L);
+
+        assertEquals(IdentityLinker.Outcome.LINKED, result.getOutcome());
+        assertEquals("16CS3UVZQtF20nFJ", u.getChargebeeCustomerId());
+    }
+
+    @Test
+    @DisplayName("self-heal: no matching customer is reported, nothing is written")
+    void linkUserNoMatch() {
+        when(userRepository.findById(500L)).thenReturn(Optional.of(user(500L, null)));
+        when(customerRepository.findByPhone(anyString())).thenReturn(List.of());
+        when(customerRepository.findByEmailIgnoreCase(anyString())).thenReturn(List.of());
+
+        IdentityLinker.LinkResult result = linker.linkUser(500L);
+
+        assertEquals(IdentityLinker.Outcome.NO_USER_MATCH, result.getOutcome());
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("self-heal: two indistinct customers is ambiguous, nothing is written")
+    void linkUserAmbiguous() {
+        when(userRepository.findById(500L)).thenReturn(Optional.of(user(500L, null)));
+        when(customerRepository.findByPhone("9999999911")).thenReturn(List.of(
+                customer("100", "9999999911", null),
+                customer("200", "9999999911", null)));
+
+        IdentityLinker.LinkResult result = linker.linkUser(500L);
+
+        assertEquals(IdentityLinker.Outcome.AMBIGUOUS, result.getOutcome());
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("self-heal: an unknown user is rejected")
+    void linkUserUnknownUser() {
+        when(userRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertEquals(IdentityLinker.Outcome.REJECTED, linker.linkUser(999L).getOutcome());
+    }
+
+    @Test
+    @DisplayName("self-heal is idempotent: a second call changes nothing")
+    void linkUserIsIdempotent() {
+        User u = user(500L, null);
+        when(userRepository.findById(500L)).thenReturn(Optional.of(u));
+        when(customerRepository.findByPhone("9999999911"))
+                .thenReturn(List.of(customer("cb1", "9999999911", null)));
+        when(userRepository.save(any(User.class))).thenReturn(u);
+
+        assertEquals(IdentityLinker.Outcome.LINKED, linker.linkUser(500L).getOutcome());
+
+        // second call: the user now carries the link and the customer row exists
+        when(customerRepository.findById("cb1")).thenReturn(Optional.of(customer("cb1", "9999999911", null)));
+        assertEquals(IdentityLinker.Outcome.ALREADY_LINKED, linker.linkUser(500L).getOutcome());
+        verify(userRepository, times(1)).save(any(User.class));
     }
 }
 

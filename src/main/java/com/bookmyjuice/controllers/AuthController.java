@@ -48,6 +48,7 @@ import com.bookmyjuice.repository.RoleRepository;
 import com.bookmyjuice.repository.UserAddressRepository;
 import com.bookmyjuice.repository.UserRepository;
 import com.bookmyjuice.security.jwt.JwtUtils;
+import com.bookmyjuice.services.IdentityLinker;
 import com.bookmyjuice.services.UserDetailsImpl;
 import com.bookmyjuice.util.EmailVerificationService;
 import com.bookmyjuice.util.OTPUtil;
@@ -70,6 +71,9 @@ public class AuthController {
 
     @Autowired
     AuthenticationManager authenticationManager;
+
+    @Autowired
+    IdentityLinker identityLinker;
 
     @Autowired
     UserRepository userRepository;
@@ -191,11 +195,38 @@ public class AuthController {
                         .map(role -> new org.springframework.security.core.authority.SimpleGrantedAuthority(
                                 role.getName().name()))
                         .collect(Collectors.toList()));
+        selfHealIdentityLink(user);
         String jwt = jwtUtils.generateJwtToken(authentication, user.getTokenVersion());
         List<String> roles = user.getRoles().stream()
                 .map(role -> role.getName().name())
                 .collect(Collectors.toList());
         return new JwtResponse(jwt, user.getId(), user.getUsername(), user.getEmail(), roles, true);
+    }
+
+    /**
+     * Self-heal the Chargebee identity link after a successful authentication.
+     *
+     * <p>Identity linking used to happen only when a customer was created. A user whose
+     * link was missing (or pointing at a dangling customer row) stayed broken forever, and
+     * every later read treated that as "no subscription". Running the idempotent
+     * {@link IdentityLinker#linkUser(Long)} on login makes the system converge with normal
+     * use instead of waiting for a repair job.
+     *
+     * <p>Deliberately never throws: an identity problem must not lock a user out of their
+     * account. Failures are logged and the login proceeds.
+     */
+    private void selfHealIdentityLink(User user) {
+        if (user == null || user.getId() == null) {
+            return;
+        }
+        try {
+            IdentityLinker.LinkResult result = identityLinker.linkUser(user.getId());
+            if (!result.isLinked() && result.getOutcome() != IdentityLinker.Outcome.NO_USER_MATCH) {
+                logger.warn("Identity self-heal after login for user {}: {}", user.getId(), result);
+            }
+        } catch (Exception e) {
+            logger.warn("Identity self-heal failed for user {}: {}", user.getId(), e.getMessage());
+        }
     }
 
     @GetMapping("/autologin")
@@ -245,6 +276,7 @@ public class AuthController {
             }
             int tokenVersion = (user != null) ? user.getTokenVersion() : 1;
 
+            selfHealIdentityLink(user);
             String jwt = jwtUtils.generateJwtToken(authentication, tokenVersion);
 
             UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
@@ -389,6 +421,7 @@ public class AuthController {
 
             // 2. Set it into the security context
             SecurityContextHolder.getContext().setAuthentication(authentication);
+            selfHealIdentityLink(user);
             String jwt = jwtUtils.generateJwtToken(authentication, user.getTokenVersion());
             List<String> roles = user.getRoles().stream()
                     .map(role -> role.getName().name())
@@ -467,6 +500,7 @@ public class AuthController {
                                     role.getName().name()))
                             .collect(Collectors.toList()));
 
+            selfHealIdentityLink(user);
             String jwt = jwtUtils.generateJwtToken(authentication, user.getTokenVersion());
             List<String> roles = user.getRoles().stream()
                     .map(role -> role.getName().name())
@@ -572,6 +606,7 @@ public class AuthController {
                                         role.getName().name()))
                                 .collect(Collectors.toList()));
 
+                selfHealIdentityLink(user);
                 String jwt = jwtUtils.generateJwtToken(authentication, user.getTokenVersion());
                 List<String> roles = user.getRoles().stream()
                         .map(role -> role.getName().name())
@@ -1120,6 +1155,7 @@ if (userRepository.existsByUsername(phone) || userRepository.findByPhone(phone).
         // Clear OTP if exists
         otpUtil.clearOTP(request.getPhone());
 
+        selfHealIdentityLink(user);
         return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
     }
 
@@ -1181,6 +1217,7 @@ if (userRepository.existsByUsername(phone) || userRepository.findByPhone(phone).
                     .body(new MessageResponse("Error: Failed to create Chargebee customer - " + e.getMessage()));
         }
 
+        selfHealIdentityLink(user);
         return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
     }
 }
