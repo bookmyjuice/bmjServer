@@ -1,5 +1,7 @@
 package com.bookmyjuice.security;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -34,6 +36,8 @@ import com.bookmyjuice.services.UserDetailsServiceImpl;
 // jsr250Enabled = true,
 // prePostEnabled = true) // by default
 public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
+
+    private static final Logger logger = LoggerFactory.getLogger(WebSecurityConfig.class);
   @Autowired
   UserDetailsServiceImpl userDetailsService;
 
@@ -51,6 +55,44 @@ public class WebSecurityConfig { // extends WebSecurityConfigurerAdapter {
 
   @Value("${WEBHOOK_PASSWORD:}")
   private String webhookPassword;
+
+  /**
+   * Escape hatch for local runs and tests that do not exercise the webhook endpoints.
+   * Never set this in a deployed environment: it re-opens the fail-open behaviour.
+   */
+  @Value("${webhook.auth.optional:false}")
+  private boolean webhookAuthOptional;
+
+  /**
+   * Refuse to start when the webhook credentials are missing.
+   *
+   * <p>Previously both values defaulted to empty, so Spring happily built an in-memory user
+   * with a blank password and {@code /api/webhooks/**} accepted {@code Basic <anything>:} —
+   * the endpoint failed open. A deployment cannot silently lose its webhook authentication
+   * any more; it either has credentials or it does not start.
+   */
+  @jakarta.annotation.PostConstruct
+  void validateWebhookCredentials() {
+    boolean missingUser = webhookUsername == null || webhookUsername.isBlank();
+    boolean missingPassword = webhookPassword == null || webhookPassword.isBlank();
+
+    if (!missingUser && !missingPassword) {
+      logger.info("Webhook Basic Auth configured for user '{}'", webhookUsername);
+      return;
+    }
+
+    String missing = (missingUser ? " WEBHOOK_USERNAME" : "") + (missingPassword ? " WEBHOOK_PASSWORD" : "");
+    if (webhookAuthOptional) {
+      logger.warn("Webhook credentials are not set ({}); continuing because "
+          + "webhook.auth.optional=true. /api/webhooks/** must not be exposed in this mode.", missing.trim());
+      return;
+    }
+    throw new IllegalStateException(
+        "Missing required webhook credentials:" + missing
+            + ". Set both environment variables (see deploy/bmj-server.env.example). "
+            + "Refusing to start rather than exposing /api/webhooks/** without authentication. "
+            + "For local runs only, set webhook.auth.optional=true.");
+  }
 
   @Bean
   public AuthTokenFilter authenticationJwtTokenFilter() {
