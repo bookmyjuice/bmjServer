@@ -131,6 +131,20 @@ public class WebhookEventProcessor {
                 case "subscription_renewed" -> result = subscriptionService.renewSubscription(event)
                         ? ResponseEntity.ok("Subscription renewed successfully")
                         : ResponseEntity.badRequest().body("Subscription renewal failed");
+                // Chargebee's subscription endpoint subscribes activated/started/deleted as
+                // well; without these the delivery would be rejected and retried.
+                // activated/started are activation events: upsert (update first, create if new).
+                case "subscription_activated", "subscription_started" ->
+                    result = subscriptionService.updateSubscription(event)
+                            || subscriptionService.saveSubscriptions(event)
+                                    ? ResponseEntity.ok("Subscription activated successfully")
+                                    : ResponseEntity.ok("Subscription already present");
+                // Deleted means the subscription no longer exists upstream. Update the local
+                // projection if we have it; never create a row for a deleted subscription.
+                case "subscription_deleted" ->
+                    result = subscriptionService.updateSubscription(event)
+                            ? ResponseEntity.ok("Subscription deletion mirrored")
+                            : ResponseEntity.ok("Subscription not present locally; deletion ignored");
                 default -> {
                     logger.warn("Unhandled subscription event type: {}", event.eventType());
                     return ResponseEntity.badRequest().body("Unhandled subscription event type: " + event.eventType());
